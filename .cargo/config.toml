@@ -1,0 +1,6 @@
+[build]
+rustflags = ["-D", "warnings"]
+rustc-wrapper = "sccache"
+
+[alias]
+clippy-check = "clippy --all --all-targets -- -D warnings -W clippy::all -W clippy::pedantic"

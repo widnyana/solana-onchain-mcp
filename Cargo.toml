@@ -2,6 +2,9 @@
 name = "solana-onchain-mcp"
 version = "0.1.0"
 edition = "2024"
+description = "MCP for Solana On-Chain activities"
+authors = ["widnyana <wid@widnyana.web.id>"]
+
 
 [dependencies]
 rust-mcp-sdk = { version = "0.8.3", features = ["macros"] }
@@ -18,3 +21,15 @@ schemars = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2"
+
+[profile.dev]
+incremental = true
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "unwind"
+strip = false
