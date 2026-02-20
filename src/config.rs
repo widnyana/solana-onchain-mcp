@@ -66,10 +66,6 @@ fn is_private_ip(host: &str) -> bool {
     }
 }
 
-fn is_local_address(host: &str) -> bool {
-    host == "localhost" || host == "127.0.0.1" || host == "::1"
-}
-
 fn validate_custom_url(url: &str) -> Result<String> {
     // Allow both http:// and https://
     if !url.starts_with("http://") && !url.starts_with("https://") {
@@ -80,17 +76,7 @@ fn validate_custom_url(url: &str) -> Result<String> {
 
     let parsed = url::Url::parse(url).map_err(|e| SolanaMcpError::InvalidEndpoint(e.to_string()))?;
 
-    // Block http:// for non-localhost
-    if url.starts_with("http://")
-        && let Some(host) = parsed.host_str()
-        && !is_local_address(host)
-    {
-        return Err(SolanaMcpError::InvalidEndpoint(
-            "HTTP URLs are only allowed for localhost".to_string(),
-        ));
-    }
-
-    // Only block private IPs for https:// (http:// allowed for local dev)
+    // Block private IPs for https:// only (http:// allowed for any host)
     if url.starts_with("https://")
         && let Some(host) = parsed.host_str()
         && is_private_ip(host)
@@ -176,15 +162,15 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_http_non_localhost_rejected() {
-        // http:// URLs should be rejected for non-localhost hosts
+    fn test_http_allowed() {
+        // http:// URLs should be allowed for any host
         unsafe {
             env::set_var("SOLANA_NETWORK", "http://example.com:8899");
         }
-        let result = Config::from_env();
-        assert!(
-            result.is_err(),
-            "http:// with non-localhost host should be rejected"
+        let config = Config::from_env().unwrap();
+        assert_eq!(
+            config.rpc_url, "http://example.com:8899",
+            "http:// with any host should be allowed"
         );
         unsafe {
             env::remove_var("SOLANA_NETWORK");
