@@ -5,6 +5,9 @@ edition = "2024"
 description = "MCP for Solana On-Chain activities"
 authors = ["widnyana <wid@widnyana.web.id>"]
 
+[lib]
+name = "solana_onchain_mcp"
+path = "src/lib.rs"
 
 [dependencies]
 rust-mcp-sdk = { version = "0.8.3", features = ["macros"] }
@@ -21,9 +24,13 @@ schemars = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2"
+clap = { version = "4", features = ["derive"] }
+spl-token = "7.0"
+spl-associated-token-account = "6.0"
 
 [dev-dependencies]
 serial_test = "3"
+tempfile = "3"
 
 [profile.dev]
 incremental = true
