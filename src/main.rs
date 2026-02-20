@@ -1,24 +1,22 @@
-// Allow enum variant naming pattern from macro-generated code
-#![allow(clippy::enum_variant_names)]
-
-mod config;
-mod error;
-mod handler;
-mod rpc;
-mod tools;
-
 use std::sync::Arc;
 
-use config::Config;
-use handler::SolanaMcpHandler;
-use rpc::SolanaRpcClient;
+use clap::Parser;
 use rust_mcp_sdk::{
     McpServer, StdioTransport, ToMcpServerHandler, TransportOptions,
     error::SdkResult,
     mcp_server::{McpServerOptions, ServerRuntime, server_runtime},
     schema::{Implementation, InitializeResult, ProtocolVersion, ServerCapabilities, ServerCapabilitiesTools},
 };
+use solana_onchain_mcp::{config::Config, handler::SolanaMcpHandler};
 use tracing_subscriber::EnvFilter;
+
+#[derive(Parser)]
+#[command(name = "solana-onchain-mcp")]
+struct Args {
+    /// Accept risk of using private key on mainnet/custom networks
+    #[arg(long)]
+    accept_risk: bool,
+}
 
 #[tokio::main]
 async fn main() -> SdkResult<()> {
@@ -26,18 +24,25 @@ async fn main() -> SdkResult<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    let config = Config::from_env().expect("Failed to load configuration");
-    let client = SolanaRpcClient::new(&config);
-    let handler = SolanaMcpHandler::new(client);
+    let args = Args::parse();
+
+    let mut config = Config::from_env().expect("Failed to load configuration");
+
+    // CLI flag overrides env var
+    if args.accept_risk {
+        config.accept_risk = true;
+    }
+
+    let handler = SolanaMcpHandler::new(&config).expect("Failed to create handler");
 
     let server_details = InitializeResult {
         server_info: Implementation {
             name: "solana-onchain-mcp".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             title: Some("Solana On-Chain MCP Server".to_string()),
-            description: Some("MCP server for querying Solana blockchain data".to_string()),
+            description: Some("MCP server for Solana blockchain operations".to_string()),
             icons: vec![],
-            website_url: Some("https://github.com/solana-labs/solana".to_string()),
+            website_url: Some("https://github.com/widnyana/solana-onchain-mcp".to_string()),
         },
         capabilities: ServerCapabilities {
             tools: Some(ServerCapabilitiesTools { list_changed: None }),
@@ -45,8 +50,9 @@ async fn main() -> SdkResult<()> {
         },
         meta: None,
         instructions: Some(
-            "Solana blockchain query tools. Use get_balance to check SOL balance, \
-             get_slot to get current block height, and get_transaction to fetch transaction details."
+            "Solana blockchain tools. Read: get_balance, get_slot, get_transaction. \
+             Write (requires keypair): transfer_sol, transfer_token. \
+             Set SOLANA_KEYPAIR_PATH to enable write operations."
                 .to_string(),
         ),
         protocol_version: ProtocolVersion::V2025_11_25.into(),

@@ -1,8 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
 use solana_client::{rpc_client::RpcClient, rpc_config::RpcTransactionConfig};
-use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
+use solana_sdk::{
+    commitment_config::CommitmentConfig, hash::Hash, pubkey::Pubkey, signature::Signature, transaction::Transaction,
+};
 use solana_transaction_status::UiTransactionEncoding;
+use tokio::task::spawn_blocking;
 
 use crate::{
     config::Config,
@@ -77,5 +80,66 @@ impl SolanaRpcClient {
         Ok(serde_json::to_value(tx).unwrap_or(serde_json::json!({
             "error": "Failed to serialize transaction"
         })))
+    }
+
+    pub async fn get_latest_blockhash(&self) -> Result<Hash> {
+        let client = self.clone();
+        spawn_blocking(move || client.client.get_latest_blockhash())
+            .await
+            .map_err(|_| SolanaMcpError::TaskJoinError)?
+            .map_err(SolanaMcpError::from)
+    }
+
+    pub async fn send_transaction(&self, tx: &Transaction) -> Result<Signature> {
+        let client = self.clone();
+        let tx = tx.clone();
+        spawn_blocking(move || client.client.send_transaction(&tx))
+            .await
+            .map_err(|_| SolanaMcpError::TaskJoinError)?
+            .map_err(SolanaMcpError::from)
+    }
+
+    pub async fn confirm_transaction(&self, sig: &Signature) -> Result<bool> {
+        let client = self.clone();
+        let sig = *sig;
+        spawn_blocking(move || client.client.confirm_transaction(&sig).map_err(SolanaMcpError::from))
+            .await
+            .map_err(|_| SolanaMcpError::TaskJoinError)?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_commitment_none_defaults_to_confirmed() {
+        let result = SolanaRpcClient::parse_commitment(None);
+        assert_eq!(result, CommitmentConfig::confirmed());
+    }
+
+    #[test]
+    fn test_parse_commitment_processed() {
+        let result = SolanaRpcClient::parse_commitment(Some("processed"));
+        assert_eq!(result, CommitmentConfig::processed());
+    }
+
+    #[test]
+    fn test_parse_commitment_finalized() {
+        let result = SolanaRpcClient::parse_commitment(Some("finalized"));
+        assert_eq!(result, CommitmentConfig::finalized());
+    }
+
+    #[test]
+    fn test_parse_commitment_invalid_defaults() {
+        let result = SolanaRpcClient::parse_commitment(Some("invalid"));
+        assert_eq!(result, CommitmentConfig::confirmed());
+    }
+
+    #[test]
+    fn test_parse_commitment_case_sensitive() {
+        // "Processed" with capital P should default to confirmed (case sensitive)
+        let result = SolanaRpcClient::parse_commitment(Some("Processed"));
+        assert_eq!(result, CommitmentConfig::confirmed());
     }
 }

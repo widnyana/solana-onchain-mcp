@@ -1,5 +1,7 @@
 // Integration tests against Solana devnet
 // Run with: SOLANA_NETWORK=devnet cargo test --test integration
+// known token account address: J5PpXvvkf9zRkyQZdVh5defDBrznDWw7cFMWAbGx59tt
+// known SPL Token account address: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU (USDC)
 
 #[cfg(test)]
 mod tests {

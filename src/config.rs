@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, path::PathBuf};
 
 use crate::error::{Result, SolanaMcpError};
 
@@ -6,39 +6,68 @@ const MAINNET_URL: &str = "https://api.mainnet-beta.solana.com";
 const DEVNET_URL: &str = "https://api.devnet.solana.com";
 const TESTNET_URL: &str = "https://api.testnet.solana.com";
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum NetworkType {
+    Mainnet,
+    Devnet,
+    Testnet,
+    Custom(String),
+}
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub rpc_url: String,
+    pub network_type: NetworkType,
+    pub keypair_path: Option<PathBuf>,
+    pub accept_risk: bool,
 }
 
 impl Config {
     pub fn from_env() -> Result<Self> {
         let network = env::var("SOLANA_NETWORK").unwrap_or_else(|_| "devnet".to_string());
+        let (rpc_url, network_type) = Self::parse_network(&network)?;
 
-        let rpc_url = match network.as_str() {
-            "mainnet" => MAINNET_URL.to_string(),
-            "devnet" => DEVNET_URL.to_string(),
-            "testnet" => TESTNET_URL.to_string(),
-            url => validate_custom_url(url)?,
+        let keypair_path = env::var("SOLANA_KEYPAIR_PATH").ok().map(PathBuf::from);
+
+        let accept_risk = env::var("SOLANA_ACCEPT_RISK").map(|v| v == "true").unwrap_or(false);
+
+        Ok(Self { rpc_url, network_type, keypair_path, accept_risk })
+    }
+
+    fn parse_network(network: &str) -> Result<(String, NetworkType)> {
+        let (rpc_url, network_type) = match network {
+            "mainnet" => (MAINNET_URL.to_string(), NetworkType::Mainnet),
+            "devnet" => (DEVNET_URL.to_string(), NetworkType::Devnet),
+            "testnet" => (TESTNET_URL.to_string(), NetworkType::Testnet),
+            url => {
+                let validated = validate_custom_url(url)?;
+                (validated.clone(), NetworkType::Custom(validated))
+            }
         };
+        Ok((rpc_url, network_type))
+    }
 
-        Ok(Self { rpc_url })
+    pub fn is_mainnet_or_custom(&self) -> bool {
+        matches!(
+            self.network_type,
+            NetworkType::Mainnet | NetworkType::Custom(_)
+        )
     }
 }
 
 fn is_private_ip(host: &str) -> bool {
     if let Ok(ip) = host.parse::<std::net::IpAddr>() {
         match ip {
-            std::net::IpAddr::V4(v4) => {
-                v4.is_loopback() || v4.is_private() || v4.is_link_local()
-            }
-            std::net::IpAddr::V6(v6) => {
-                v6.is_loopback() || v6.is_unique_local()
-            }
+            std::net::IpAddr::V4(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local(),
+            std::net::IpAddr::V6(v6) => v6.is_loopback() || v6.is_unique_local(),
         }
     } else {
         host == "localhost"
     }
+}
+
+fn is_local_address(host: &str) -> bool {
+    host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 fn validate_custom_url(url: &str) -> Result<String> {
@@ -51,15 +80,25 @@ fn validate_custom_url(url: &str) -> Result<String> {
 
     let parsed = url::Url::parse(url).map_err(|e| SolanaMcpError::InvalidEndpoint(e.to_string()))?;
 
-    // Only block private IPs for https:// (http:// allowed for local dev)
-    if url.starts_with("https://") {
+    // Block http:// for non-localhost
+    if url.starts_with("http://") {
         if let Some(host) = parsed.host_str() {
-            if is_private_ip(host) {
+            if !is_local_address(host) {
                 return Err(SolanaMcpError::InvalidEndpoint(
-                    "Private network URLs are not allowed for https://".to_string(),
+                    "HTTP URLs are only allowed for localhost".to_string(),
                 ));
             }
         }
+    }
+
+    // Only block private IPs for https:// (http:// allowed for local dev)
+    if url.starts_with("https://")
+        && let Some(host) = parsed.host_str()
+        && is_private_ip(host)
+    {
+        return Err(SolanaMcpError::InvalidEndpoint(
+            "Private network URLs are not allowed for https://".to_string(),
+        ));
     }
 
     Ok(url.to_string())
@@ -67,8 +106,9 @@ fn validate_custom_url(url: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serial_test::serial;
+
+    use super::*;
 
     #[test]
     #[serial]
@@ -137,13 +177,16 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_http_allowed() {
-        // http:// URLs should be allowed for public hosts
+    fn test_http_non_localhost_rejected() {
+        // http:// URLs should be rejected for non-localhost hosts
         unsafe {
             env::set_var("SOLANA_NETWORK", "http://example.com:8899");
         }
-        let config = Config::from_env().unwrap();
-        assert_eq!(config.rpc_url, "http://example.com:8899");
+        let result = Config::from_env();
+        assert!(
+            result.is_err(),
+            "http:// with non-localhost host should be rejected"
+        );
         unsafe {
             env::remove_var("SOLANA_NETWORK");
         }
@@ -157,7 +200,10 @@ mod tests {
             env::set_var("SOLANA_NETWORK", "http://127.0.0.1:8899");
         }
         let config = Config::from_env().unwrap();
-        assert_eq!(config.rpc_url, "http://127.0.0.1:8899", "http:// with private IP should be allowed");
+        assert_eq!(
+            config.rpc_url, "http://127.0.0.1:8899",
+            "http:// with private IP should be allowed"
+        );
         unsafe {
             env::remove_var("SOLANA_NETWORK");
         }
