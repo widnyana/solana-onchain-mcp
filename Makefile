@@ -1,3 +1,6 @@
+inspect:
+	@npx @modelcontextprotocol/inspector cargo run
+
 fmt:
 	@echo "Formatting Rust code with nightly..."
 	@cargo +nightly fmt --all
