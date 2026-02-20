@@ -7,11 +7,14 @@ use crate::rpc::SolanaRpcClient;
 
 #[mcp_tool(
     name = "get_slot",
-    description = "Get the current slot (block height) from the Solana cluster."
+    description = "Get the current slot (block height) on the connected Solana cluster. \
+Use this to check blockchain progress, estimate transaction confirmation time, \
+or verify network connectivity. The slot number increases with each block."
 )]
 #[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
 pub struct GetSlotTool {
-    /// Commitment level (processed, confirmed, finalized)
+    /// Commitment level: "processed" (fastest, may rollback), \
+    /// "confirmed" (default, ~400ms latency), "finalized" (~1s, permanent)
     pub commitment: Option<String>,
 }
 
