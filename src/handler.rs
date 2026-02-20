@@ -10,12 +10,12 @@ use rust_mcp_sdk::{
 use crate::{rpc::SolanaRpcClient, tools::SolanaTools};
 
 pub struct SolanaMcpHandler {
-    client: Arc<SolanaRpcClient>,
+    client: SolanaRpcClient,
 }
 
 impl SolanaMcpHandler {
     pub fn new(client: SolanaRpcClient) -> Self {
-        Self { client: Arc::new(client) }
+        Self { client }
     }
 }
 
@@ -34,7 +34,7 @@ impl ServerHandler for SolanaMcpHandler {
         params: CallToolRequestParams,
         _runtime: Arc<dyn McpServer>,
     ) -> Result<CallToolResult, CallToolError> {
-        let client = Arc::clone(&self.client);
+        let client = self.client.clone();
 
         // Convert request parameters into SolanaTools enum
         let tool: SolanaTools = SolanaTools::try_from(params).map_err(CallToolError::new)?;
