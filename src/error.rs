@@ -115,7 +115,7 @@ mod tests {
 
     #[test]
     fn test_from_client_error_other() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "test io error");
+        let io_err = std::io::Error::other("test io error");
         let client_err = solana_client::client_error::ClientError::new_with_request(
             ClientErrorKind::Io(io_err),
             solana_client::rpc_request::RpcRequest::GetAccountInfo,

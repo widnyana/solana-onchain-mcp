@@ -22,6 +22,17 @@ pub struct Config {
     pub accept_risk: bool,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            rpc_url: DEVNET_URL.to_string(),
+            network_type: NetworkType::Devnet,
+            keypair_path: None,
+            accept_risk: false,
+        }
+    }
+}
+
 impl Config {
     pub fn from_env() -> Result<Self> {
         let network = env::var("SOLANA_NETWORK").unwrap_or_else(|_| "devnet".to_string());
