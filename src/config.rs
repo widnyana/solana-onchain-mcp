@@ -81,14 +81,13 @@ fn validate_custom_url(url: &str) -> Result<String> {
     let parsed = url::Url::parse(url).map_err(|e| SolanaMcpError::InvalidEndpoint(e.to_string()))?;
 
     // Block http:// for non-localhost
-    if url.starts_with("http://") {
-        if let Some(host) = parsed.host_str() {
-            if !is_local_address(host) {
-                return Err(SolanaMcpError::InvalidEndpoint(
-                    "HTTP URLs are only allowed for localhost".to_string(),
-                ));
-            }
-        }
+    if url.starts_with("http://")
+        && let Some(host) = parsed.host_str()
+        && !is_local_address(host)
+    {
+        return Err(SolanaMcpError::InvalidEndpoint(
+            "HTTP URLs are only allowed for localhost".to_string(),
+        ));
     }
 
     // Only block private IPs for https:// (http:// allowed for local dev)
