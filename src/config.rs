@@ -42,19 +42,23 @@ fn is_private_ip(host: &str) -> bool {
 }
 
 fn validate_custom_url(url: &str) -> Result<String> {
-    if !url.starts_with("https://") {
+    // Allow both http:// and https://
+    if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err(SolanaMcpError::InvalidEndpoint(
-            "URL must start with https://".to_string(),
+            "URL must start with http:// or https://".to_string(),
         ));
     }
 
     let parsed = url::Url::parse(url).map_err(|e| SolanaMcpError::InvalidEndpoint(e.to_string()))?;
 
-    if let Some(host) = parsed.host_str() {
-        if is_private_ip(host) {
-            return Err(SolanaMcpError::InvalidEndpoint(
-                "Private network URLs are not allowed".to_string(),
-            ));
+    // Only block private IPs for https:// (http:// allowed for local dev)
+    if url.starts_with("https://") {
+        if let Some(host) = parsed.host_str() {
+            if is_private_ip(host) {
+                return Err(SolanaMcpError::InvalidEndpoint(
+                    "Private network URLs are not allowed for https://".to_string(),
+                ));
+            }
         }
     }
 
@@ -64,8 +68,10 @@ fn validate_custom_url(url: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_default_is_devnet() {
         unsafe {
             env::remove_var("SOLANA_NETWORK");
@@ -75,6 +81,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_mainnet_parsing() {
         unsafe {
             env::set_var("SOLANA_NETWORK", "mainnet");
@@ -87,9 +94,39 @@ mod tests {
     }
 
     #[test]
-    fn test_custom_url_rejected_if_not_https() {
+    #[serial]
+    fn test_custom_url_requires_http_or_https() {
+        // Invalid scheme should be rejected (ftp is not allowed)
         unsafe {
-            env::set_var("SOLANA_NETWORK", "http://evil.com");
+            env::set_var("SOLANA_NETWORK", "ftp://evil.com");
+        }
+        let result = Config::from_env();
+        assert!(result.is_err(), "ftp:// should be rejected");
+        unsafe {
+            env::remove_var("SOLANA_NETWORK");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_https_url_accepted() {
+        // https:// with public host should be accepted
+        unsafe {
+            env::set_var("SOLANA_NETWORK", "https://api.example.com");
+        }
+        let config = Config::from_env().unwrap();
+        assert_eq!(config.rpc_url, "https://api.example.com");
+        unsafe {
+            env::remove_var("SOLANA_NETWORK");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_https_private_ip_rejected() {
+        // Private IPs are blocked for https://
+        unsafe {
+            env::set_var("SOLANA_NETWORK", "https://127.0.0.1:8899");
         }
         let result = Config::from_env();
         assert!(result.is_err());
@@ -99,12 +136,28 @@ mod tests {
     }
 
     #[test]
-    fn test_private_ip_rejected() {
+    #[serial]
+    fn test_http_allowed() {
+        // http:// URLs should be allowed for public hosts
         unsafe {
-            env::set_var("SOLANA_NETWORK", "https://127.0.0.1:8899");
+            env::set_var("SOLANA_NETWORK", "http://example.com:8899");
         }
-        let result = Config::from_env();
-        assert!(result.is_err());
+        let config = Config::from_env().unwrap();
+        assert_eq!(config.rpc_url, "http://example.com:8899");
+        unsafe {
+            env::remove_var("SOLANA_NETWORK");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_http_private_allowed() {
+        // http:// with private IP should be allowed for local dev
+        unsafe {
+            env::set_var("SOLANA_NETWORK", "http://127.0.0.1:8899");
+        }
+        let config = Config::from_env().unwrap();
+        assert_eq!(config.rpc_url, "http://127.0.0.1:8899", "http:// with private IP should be allowed");
         unsafe {
             env::remove_var("SOLANA_NETWORK");
         }
