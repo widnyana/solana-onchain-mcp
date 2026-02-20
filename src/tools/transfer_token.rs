@@ -7,9 +7,11 @@ use crate::{error::Result, keypair::LoadedKeypair, rpc::SolanaRpcClient};
 
 #[mcp_tool(
     name = "transfer_token",
-    description = "Transfer SPL tokens from the configured wallet to a recipient address. \
-    Use this when the user wants to send SPL tokens (like USDC, USDT, or other fungible tokens) \
-    to another Solana address. The keypair must be configured via SOLANA_KEYPAIR_PATH environment variable."
+    description = "[IRREVERSIBLE] Transfer SPL tokens (e.g., USDC, USDT) from the configured wallet to a recipient address. \
+WARNING: This permanently moves tokens - verify recipient, token mint, and amount before executing. \
+Recipient must have an associated token account (ATA) for this token mint. \
+Use this when the user wants to send SPL tokens to another Solana address. \
+The keypair must be configured via SOLANA_KEYPAIR_PATH environment variable."
 )]
 #[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
 pub struct TransferTokenTool {
