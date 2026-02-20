@@ -4,13 +4,11 @@ use solana_sdk::signature::{Keypair, Signer};
 
 use crate::error::{Result, SolanaMcpError};
 
-#[allow(dead_code)]
 pub struct LoadedKeypair {
     pub keypair: Keypair,
     pub pubkey: String,
 }
 
-#[allow(dead_code)]
 pub fn load_keypair(path: &Path) -> Result<LoadedKeypair> {
     if !path.exists() {
         return Err(SolanaMcpError::KeypairNotFound(path.display().to_string()));

@@ -18,19 +18,15 @@ pub enum SolanaMcpError {
     SerializationError(#[from] serde_json::Error),
 
     #[error("Internal task error")]
-    #[allow(dead_code)]
     TaskJoinError,
 
     #[error("Keypair file not found: {0}")]
-    #[allow(dead_code)]
     KeypairNotFound(String),
 
     #[error("Invalid keypair: {0}")]
-    #[allow(dead_code)]
     InvalidKeypair(String),
 
     #[error("Mainnet requires --accept-risk: {0}")]
-    #[allow(dead_code)]
     MainnetRiskNotAccepted(String),
 
     #[error("Transaction failed: {0}")]
