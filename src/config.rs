@@ -26,6 +26,21 @@ impl Config {
     }
 }
 
+fn is_private_ip(host: &str) -> bool {
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        match ip {
+            std::net::IpAddr::V4(v4) => {
+                v4.is_loopback() || v4.is_private() || v4.is_link_local()
+            }
+            std::net::IpAddr::V6(v6) => {
+                v6.is_loopback() || v6.is_unique_local()
+            }
+        }
+    } else {
+        host == "localhost"
+    }
+}
+
 fn validate_custom_url(url: &str) -> Result<String> {
     if !url.starts_with("https://") {
         return Err(SolanaMcpError::InvalidEndpoint(
@@ -35,25 +50,15 @@ fn validate_custom_url(url: &str) -> Result<String> {
 
     let parsed = url::Url::parse(url).map_err(|e| SolanaMcpError::InvalidEndpoint(e.to_string()))?;
 
-    if let Some(host) = parsed.host_str()
-        && (host == "localhost"
-            || host.starts_with("127.")
-            || host.starts_with("10.")
-            || host.starts_with("192.168.")
-            || host.starts_with("172."))
-    {
-        return Err(SolanaMcpError::InvalidEndpoint(
-            "Private network URLs are not allowed".to_string(),
-        ));
+    if let Some(host) = parsed.host_str() {
+        if is_private_ip(host) {
+            return Err(SolanaMcpError::InvalidEndpoint(
+                "Private network URLs are not allowed".to_string(),
+            ));
+        }
     }
 
     Ok(url.to_string())
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self::from_env().expect("Invalid default configuration")
-    }
 }
 
 #[cfg(test)]
@@ -103,5 +108,53 @@ mod tests {
         unsafe {
             env::remove_var("SOLANA_NETWORK");
         }
+    }
+
+    #[test]
+    fn test_is_private_ip_loopback() {
+        assert!(is_private_ip("127.0.0.1"));
+        assert!(is_private_ip("localhost"));
+    }
+
+    #[test]
+    fn test_is_private_ip_private_ranges() {
+        // 10.0.0.0/8
+        assert!(is_private_ip("10.0.0.1"));
+        assert!(is_private_ip("10.255.255.255"));
+        // 172.16.0.0/12
+        assert!(is_private_ip("172.16.0.1"));
+        assert!(is_private_ip("172.31.255.255"));
+        // 192.168.0.0/16
+        assert!(is_private_ip("192.168.0.1"));
+        assert!(is_private_ip("192.168.255.255"));
+    }
+
+    #[test]
+    fn test_is_private_ip_link_local() {
+        // 169.254.0.0/16
+        assert!(is_private_ip("169.254.0.1"));
+        assert!(is_private_ip("169.254.255.255"));
+    }
+
+    #[test]
+    fn test_is_private_ip_public_not_blocked() {
+        // 172.15.x.x is public (outside 172.16.0.0/12)
+        assert!(!is_private_ip("172.15.0.1"));
+        // 172.32.x.x is public (outside 172.16.0.0/12)
+        assert!(!is_private_ip("172.32.0.1"));
+        // Regular public IPs
+        assert!(!is_private_ip("8.8.8.8"));
+        assert!(!is_private_ip("1.1.1.1"));
+    }
+
+    #[test]
+    fn test_is_private_ip_ipv6() {
+        // IPv6 loopback
+        assert!(is_private_ip("::1"));
+        // IPv6 unique local (fc00::/7)
+        assert!(is_private_ip("fc00::1"));
+        assert!(is_private_ip("fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+        // IPv6 public
+        assert!(!is_private_ip("2001:4860:4860::8888"));
     }
 }
