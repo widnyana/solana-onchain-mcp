@@ -86,9 +86,25 @@ impl ServerHandler for SolanaMcpHandler {
 
         // Match the tool variant and execute
         match tool {
+            SolanaTools::GetAccountInfoTool(get_account_info_tool) => get_account_info_tool.call_tool(&client),
             SolanaTools::GetBalanceTool(get_balance_tool) => get_balance_tool.call_tool(&client),
+            SolanaTools::GetMultipleAccountsTool(get_multiple_accounts_tool) => {
+                get_multiple_accounts_tool.call_tool(&client)
+            }
+            SolanaTools::GetProgramAccountsTool(get_program_accounts_tool) => {
+                get_program_accounts_tool.call_tool(&client)
+            }
+            SolanaTools::GetSignaturesForAddressTool(get_signatures_for_address_tool) => {
+                get_signatures_for_address_tool.call_tool(&client)
+            }
             SolanaTools::GetSlotTool(get_slot_tool) => get_slot_tool.call_tool(&client),
+            SolanaTools::GetTokenAccountsByOwnerTool(get_token_accounts_by_owner_tool) => {
+                get_token_accounts_by_owner_tool.call_tool(&client)
+            }
             SolanaTools::GetTransactionTool(get_transaction_tool) => get_transaction_tool.call_tool(&client),
+            SolanaTools::SimulateTransactionTool(simulate_transaction_tool) => {
+                simulate_transaction_tool.call_tool(&client)
+            }
             SolanaTools::TransferSolTool(transfer_sol_tool) => {
                 let keypair = self.require_keypair()?;
 
