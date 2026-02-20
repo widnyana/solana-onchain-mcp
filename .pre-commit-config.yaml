@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: make-fmt
+        name: Run Makefile fmt
+        entry: make fmt
+        language: system
+        files: \.(rs)$
+        pass_filenames: false
+
+  - repo: https://github.com/AndrejOrsula/pre-commit-cargo
+    rev: 0.5.0
+    hooks:
+      - id: cargo-check
+        args: ["--all-targets", "--all-features"]
