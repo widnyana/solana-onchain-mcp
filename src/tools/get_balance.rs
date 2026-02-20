@@ -1,5 +1,7 @@
-use rust_mcp_sdk::macros::{mcp_tool, JsonSchema};
-use rust_mcp_sdk::schema::{CallToolResult, CallToolError, TextContent};
+use rust_mcp_sdk::{
+    macros::{JsonSchema, mcp_tool},
+    schema::{CallToolError, CallToolResult, TextContent},
+};
 
 use crate::rpc::SolanaRpcClient;
 
@@ -27,6 +29,8 @@ impl GetBalanceTool {
             balance as f64 / 1_000_000_000.0
         );
 
-        Ok(CallToolResult::text_content(vec![TextContent::from(message)]))
+        Ok(CallToolResult::text_content(vec![TextContent::from(
+            message,
+        )]))
     }
 }

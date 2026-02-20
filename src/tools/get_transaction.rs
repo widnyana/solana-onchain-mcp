@@ -1,5 +1,7 @@
-use rust_mcp_sdk::macros::{mcp_tool, JsonSchema};
-use rust_mcp_sdk::schema::{CallToolResult, CallToolError, TextContent};
+use rust_mcp_sdk::{
+    macros::{JsonSchema, mcp_tool},
+    schema::{CallToolError, CallToolResult, TextContent},
+};
 
 use crate::rpc::SolanaRpcClient;
 
@@ -21,9 +23,11 @@ impl GetTransactionTool {
             .get_transaction(&self.signature, self.commitment.as_deref())
             .map_err(CallToolError::new)?;
 
-        let message = serde_json::to_string_pretty(&tx)
-            .unwrap_or_else(|_| "Failed to serialize transaction".to_string());
+        let message =
+            serde_json::to_string_pretty(&tx).unwrap_or_else(|_| "Failed to serialize transaction".to_string());
 
-        Ok(CallToolResult::text_content(vec![TextContent::from(message)]))
+        Ok(CallToolResult::text_content(vec![TextContent::from(
+            message,
+        )]))
     }
 }

@@ -1,14 +1,13 @@
-use async_trait::async_trait;
 use std::sync::Arc;
-use rust_mcp_sdk::schema::{
-    CallToolRequestParams, CallToolResult, CallToolError,
-    ListToolsResult, PaginatedRequestParams, RpcError,
-};
-use rust_mcp_sdk::mcp_server::ServerHandler;
-use rust_mcp_sdk::McpServer;
 
-use crate::rpc::SolanaRpcClient;
-use crate::tools::SolanaTools;
+use async_trait::async_trait;
+use rust_mcp_sdk::{
+    McpServer,
+    mcp_server::ServerHandler,
+    schema::{CallToolError, CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams, RpcError},
+};
+
+use crate::{rpc::SolanaRpcClient, tools::SolanaTools};
 
 pub struct SolanaMcpHandler {
     client: Arc<SolanaRpcClient>,
@@ -16,9 +15,7 @@ pub struct SolanaMcpHandler {
 
 impl SolanaMcpHandler {
     pub fn new(client: SolanaRpcClient) -> Self {
-        Self {
-            client: Arc::new(client),
-        }
+        Self { client: Arc::new(client) }
     }
 }
 
@@ -29,11 +26,7 @@ impl ServerHandler for SolanaMcpHandler {
         _params: Option<PaginatedRequestParams>,
         _runtime: Arc<dyn McpServer>,
     ) -> Result<ListToolsResult, RpcError> {
-        Ok(ListToolsResult {
-            tools: SolanaTools::tools(),
-            meta: None,
-            next_cursor: None,
-        })
+        Ok(ListToolsResult { tools: SolanaTools::tools(), meta: None, next_cursor: None })
     }
 
     async fn handle_call_tool_request(
@@ -44,20 +37,13 @@ impl ServerHandler for SolanaMcpHandler {
         let client = Arc::clone(&self.client);
 
         // Convert request parameters into SolanaTools enum
-        let tool: SolanaTools = SolanaTools::try_from(params)
-            .map_err(CallToolError::new)?;
+        let tool: SolanaTools = SolanaTools::try_from(params).map_err(CallToolError::new)?;
 
         // Match the tool variant and execute with client
         match tool {
-            SolanaTools::GetBalanceTool(get_balance_tool) => {
-                get_balance_tool.call_tool(&client)
-            }
-            SolanaTools::GetSlotTool(get_slot_tool) => {
-                get_slot_tool.call_tool(&client)
-            }
-            SolanaTools::GetTransactionTool(get_transaction_tool) => {
-                get_transaction_tool.call_tool(&client)
-            }
+            SolanaTools::GetBalanceTool(get_balance_tool) => get_balance_tool.call_tool(&client),
+            SolanaTools::GetSlotTool(get_slot_tool) => get_slot_tool.call_tool(&client),
+            SolanaTools::GetTransactionTool(get_transaction_tool) => get_transaction_tool.call_tool(&client),
         }
     }
 }

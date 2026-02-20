@@ -7,19 +7,18 @@ mod handler;
 mod rpc;
 mod tools;
 
-use rust_mcp_sdk::schema::{
-    Implementation, InitializeResult, ProtocolVersion, ServerCapabilities,
-    ServerCapabilitiesTools,
-};
-use rust_mcp_sdk::error::SdkResult;
-use rust_mcp_sdk::mcp_server::{server_runtime, McpServerOptions, ServerRuntime};
-use rust_mcp_sdk::{StdioTransport, ToMcpServerHandler, TransportOptions, McpServer};
 use std::sync::Arc;
-use tracing_subscriber::EnvFilter;
 
 use config::Config;
 use handler::SolanaMcpHandler;
 use rpc::SolanaRpcClient;
+use rust_mcp_sdk::{
+    McpServer, StdioTransport, ToMcpServerHandler, TransportOptions,
+    error::SdkResult,
+    mcp_server::{McpServerOptions, ServerRuntime, server_runtime},
+    schema::{Implementation, InitializeResult, ProtocolVersion, ServerCapabilities, ServerCapabilitiesTools},
+};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> SdkResult<()> {

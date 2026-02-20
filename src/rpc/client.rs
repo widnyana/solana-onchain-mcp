@@ -1,12 +1,13 @@
-use std::sync::Arc;
-use std::time::Duration;
-use solana_client::rpc_client::RpcClient;
-use solana_client::rpc_config::RpcTransactionConfig;
+use std::{sync::Arc, time::Duration};
+
+use solana_client::{rpc_client::RpcClient, rpc_config::RpcTransactionConfig};
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::UiTransactionEncoding;
 
-use crate::config::Config;
-use crate::error::{SolanaMcpError, Result};
+use crate::{
+    config::Config,
+    error::{Result, SolanaMcpError},
+};
 
 #[derive(Clone)]
 pub struct SolanaRpcClient {
@@ -21,9 +22,7 @@ impl SolanaRpcClient {
             CommitmentConfig::confirmed(),
         );
 
-        Self {
-            client: Arc::new(client),
-        }
+        Self { client: Arc::new(client) }
     }
 
     pub fn parse_commitment(commitment: Option<&str>) -> CommitmentConfig {
@@ -35,11 +34,13 @@ impl SolanaRpcClient {
     }
 
     pub fn get_balance(&self, address: &str, commitment: Option<&str>) -> Result<u64> {
-        let pubkey = address.parse::<Pubkey>()
+        let pubkey = address
+            .parse::<Pubkey>()
             .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
 
         let commitment_config = Self::parse_commitment(commitment);
-        let response = self.client
+        let response = self
+            .client
             .get_balance_with_commitment(&pubkey, commitment_config)
             .map_err(SolanaMcpError::from)?;
 
@@ -48,7 +49,8 @@ impl SolanaRpcClient {
 
     pub fn get_slot(&self, commitment: Option<&str>) -> Result<u64> {
         let commitment_config = Self::parse_commitment(commitment);
-        let slot = self.client
+        let slot = self
+            .client
             .get_slot_with_commitment(commitment_config)
             .map_err(SolanaMcpError::from)?;
 
@@ -56,7 +58,8 @@ impl SolanaRpcClient {
     }
 
     pub fn get_transaction(&self, signature: &str, commitment: Option<&str>) -> Result<serde_json::Value> {
-        let sig = signature.parse::<Signature>()
+        let sig = signature
+            .parse::<Signature>()
             .map_err(|e| SolanaMcpError::InvalidSignature(e.to_string()))?;
 
         let commitment_config = Self::parse_commitment(commitment);
@@ -66,7 +69,8 @@ impl SolanaRpcClient {
             max_supported_transaction_version: Some(0),
         };
 
-        let tx = self.client
+        let tx = self
+            .client
             .get_transaction_with_config(&sig, config)
             .map_err(SolanaMcpError::from)?;
 

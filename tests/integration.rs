@@ -6,7 +6,9 @@ mod tests {
     use std::env;
 
     fn setup() {
-        unsafe { env::set_var("SOLANA_NETWORK", "devnet"); }
+        unsafe {
+            env::set_var("SOLANA_NETWORK", "devnet");
+        }
     }
 
     #[tokio::test]
