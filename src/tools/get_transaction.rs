@@ -7,13 +7,16 @@ use crate::rpc::SolanaRpcClient;
 
 #[mcp_tool(
     name = "get_transaction",
-    description = "Get transaction details by signature. Returns parsed transaction data in JSON format."
+    description = "Fetch transaction details by signature. Returns full transaction data \
+including status, fees, and account changes. Use this when the user asks about a \
+specific transaction, its status, or what it did."
 )]
 #[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
 pub struct GetTransactionTool {
     /// The transaction signature to fetch
     pub signature: String,
-    /// Commitment level (processed, confirmed, finalized)
+    /// Commitment level: "processed" (fastest, may rollback), \
+    /// "confirmed" (default, ~400ms latency), "finalized" (~1s, permanent)
     pub commitment: Option<String>,
 }
 

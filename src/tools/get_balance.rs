@@ -7,13 +7,17 @@ use crate::rpc::SolanaRpcClient;
 
 #[mcp_tool(
     name = "get_balance",
-    description = "Get SOL balance for a Solana address. Returns balance in lamports (1 SOL = 1,000,000,000 lamports)."
+    description = "Get SOL balance for a Solana address. Returns balance in lamports \
+(1 SOL = 1,000,000,000 lamports). Use this when the user asks about wallet balance, \
+account funds, or SOL holdings. Does NOT return SPL token balances - those require \
+a different RPC call."
 )]
 #[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
 pub struct GetBalanceTool {
     /// The Solana address to check balance for
     pub address: String,
-    /// Commitment level (processed, confirmed, finalized)
+    /// Commitment level: "processed" (fastest, may rollback), \
+    /// "confirmed" (default, ~400ms latency), "finalized" (~1s, permanent)
     pub commitment: Option<String>,
 }
 
