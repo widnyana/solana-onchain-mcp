@@ -38,9 +38,9 @@ impl GetAccountInfoTool {
             .map_err(CallToolError::new)?;
 
         match account {
-            Some(acc) => Ok(CallToolResult::text_content(vec![TextContent::from(
-                serde_json::to_string_pretty(&acc).unwrap_or_else(|_| "Account data".to_string()),
-            )])),
+            Some(acc) => Ok(CallToolResult::text_content(vec![
+                json_to_text(&acc).map_err(|e| CallToolError::new(Box::new(e)))?,
+            ])),
             None => Ok(CallToolResult::text_content(vec![TextContent::from(
                 "Account not found or does not exist",
             )])),

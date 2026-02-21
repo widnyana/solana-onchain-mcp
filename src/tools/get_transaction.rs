@@ -26,11 +26,8 @@ impl GetTransactionTool {
             .get_transaction(&self.signature, self.commitment.as_deref())
             .map_err(CallToolError::new)?;
 
-        let message =
-            serde_json::to_string_pretty(&tx).unwrap_or_else(|_| "Failed to serialize transaction".to_string());
-
-        Ok(CallToolResult::text_content(vec![TextContent::from(
-            message,
-        )]))
+        Ok(CallToolResult::text_content(vec![
+            json_to_text(&tx).map_err(|e| CallToolError::new(Box::new(e)))?,
+        ]))
     }
 }

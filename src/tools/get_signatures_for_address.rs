@@ -45,8 +45,8 @@ impl GetSignaturesForAddressTool {
             )
             .map_err(CallToolError::new)?;
 
-        Ok(CallToolResult::text_content(vec![TextContent::from(
-            serde_json::to_string_pretty(&signatures).unwrap_or_else(|_| "Signatures data".to_string()),
-        )]))
+        Ok(CallToolResult::text_content(vec![
+            json_to_text(&signatures).map_err(|e| CallToolError::new(Box::new(e)))?,
+        ]))
     }
 }
