@@ -1,3 +1,4 @@
+mod create_ata;
 mod get_account_info;
 mod get_balance;
 mod get_multiple_accounts;
@@ -10,6 +11,7 @@ mod simulate_transaction;
 mod transfer_sol;
 mod transfer_token;
 
+pub use create_ata::*;
 pub use get_account_info::*;
 pub use get_balance::*;
 pub use get_multiple_accounts::*;
@@ -26,6 +28,7 @@ pub use transfer_token::*;
 tool_box!(
     SolanaTools,
     [
+        CreateAtaTool,
         GetAccountInfoTool,
         GetBalanceTool,
         GetMultipleAccountsTool,

@@ -68,7 +68,12 @@ impl ServerHandler for SolanaMcpHandler {
             // Filter out write tools when no keypair
             SolanaTools::tools()
                 .into_iter()
-                .filter(|t| !matches!(t.name.as_str(), "transfer_sol" | "transfer_token"))
+                .filter(|t| {
+                    !matches!(
+                        t.name.as_str(),
+                        "create_associated_token_account" | "transfer_sol" | "transfer_token"
+                    )
+                })
                 .collect()
         };
         Ok(ListToolsResult { tools, meta: None, next_cursor: None })
@@ -86,6 +91,16 @@ impl ServerHandler for SolanaMcpHandler {
 
         // Match the tool variant and execute
         match tool {
+            SolanaTools::CreateAtaTool(create_ata_tool) => {
+                let keypair = self.require_keypair()?;
+
+                let result = create_ata_tool
+                    .call_tool(&client, keypair)
+                    .await
+                    .map_err(CallToolError::new)?;
+
+                Ok(CallToolResult::text_content(vec![json_to_text(&result)]))
+            }
             SolanaTools::GetAccountInfoTool(get_account_info_tool) => get_account_info_tool.call_tool(&client),
             SolanaTools::GetBalanceTool(get_balance_tool) => get_balance_tool.call_tool(&client),
             SolanaTools::GetMultipleAccountsTool(get_multiple_accounts_tool) => {
