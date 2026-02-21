@@ -2,45 +2,34 @@
 //!
 //! This module provides tools for inspecting and analyzing Solana transactions.
 
+mod core;
 mod humanized;
+mod programs;
 mod raw;
 
 pub use humanized::InspectTransactionHumanizedTool;
 pub use raw::InspectTransactionRawTool;
 
+// Public exports for enhanced transaction parsing (future use)
+#[allow(unused_imports, dead_code)]
+pub use core::{
+    AccountRef, AccountRole, BalanceChange, ParseConfig, ParsedInstruction,
+    ParsedInstructionData, ParseError, ParsedTransaction, TokenBalanceChange, TransactionSummary,
+};
+#[allow(unused_imports, dead_code)]
+pub use programs::{
+    decode_instruction, identify_program, interpret_error, ProgramCategory, ProgramInfo,
+    ProgramRegistry,
+};
+
 /// Lookup table for well-known Solana program names
 pub(crate) fn get_program_name(pubkey: &str) -> Option<&'static str> {
-    let programs = [
-        ("11111111111111111111111111111111", "System Program"),
-        (
-            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-            "Token Program",
-        ),
-        (
-            "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-            "Token2022 Program",
-        ),
-        (
-            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-            "Associated Token Account",
-        ),
-        (
-            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
-            "Raydium DEX",
-        ),
-        (
-            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
-            "Jupiter Aggregator",
-        ),
-        ("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctWtC", "Orca DEX"),
-    ];
-
-    for (id, name) in programs {
-        if id == pubkey {
-            return Some(name);
-        }
-    }
-    None
+    identify_program(pubkey).map(|info| {
+        // The ProgramInfo is static, so we can return a static str
+        let name: &str = &info.name;
+        // SAFETY: ProgramInfo instances are lazily static, names are &'static str
+        unsafe { std::mem::transmute::<&str, &'static str>(name) }
+    })
 }
 
 /// Format an InstructionError into a human-readable string
