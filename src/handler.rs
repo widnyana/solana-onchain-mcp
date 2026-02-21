@@ -4,13 +4,16 @@ use async_trait::async_trait;
 use rust_mcp_sdk::{
     McpServer,
     mcp_server::ServerHandler,
-    schema::{
-        CallToolError, CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams, RpcError,
-        TextContent,
-    },
+    schema::{CallToolError, CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams, RpcError},
 };
 
-use crate::{config::Config, error::SolanaMcpError, keypair::LoadedKeypair, rpc::SolanaRpcClient, tools::SolanaTools};
+use crate::{
+    config::Config,
+    error::SolanaMcpError,
+    keypair::LoadedKeypair,
+    rpc::SolanaRpcClient,
+    tools::{SolanaTools, json_to_text},
+};
 
 pub struct SolanaMcpHandler {
     client: SolanaRpcClient,
@@ -99,7 +102,9 @@ impl ServerHandler for SolanaMcpHandler {
                     .await
                     .map_err(CallToolError::new)?;
 
-                Ok(CallToolResult::text_content(vec![json_to_text(&result)]))
+                Ok(CallToolResult::text_content(vec![
+                    json_to_text(&result).map_err(|e| CallToolError::new(Box::new(e)))?,
+                ]))
             }
             SolanaTools::GetAccountInfoTool(get_account_info_tool) => get_account_info_tool.call_tool(&client),
             SolanaTools::GetBalanceTool(get_balance_tool) => get_balance_tool.call_tool(&client),

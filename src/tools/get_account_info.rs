@@ -3,6 +3,7 @@ use rust_mcp_sdk::{
     schema::{CallToolError, CallToolResult, TextContent},
 };
 
+use super::json_to_text;
 use crate::rpc::SolanaRpcClient;
 
 #[mcp_tool(
