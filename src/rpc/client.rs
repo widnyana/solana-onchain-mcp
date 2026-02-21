@@ -15,7 +15,7 @@ use solana_client::{
 use solana_sdk::{
     commitment_config::CommitmentConfig, hash::Hash, pubkey::Pubkey, signature::Signature, transaction::Transaction,
 };
-use solana_transaction_status::UiTransactionEncoding;
+use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use tokio::task::spawn_blocking;
 
 use crate::{
@@ -129,6 +129,25 @@ impl SolanaRpcClient {
     }
 
     // ==================== NEW READ TOOLS ====================
+
+    /// Get transaction with specific encoding, returning the full typed response
+    pub fn get_transaction_with_config(
+        &self,
+        signature: &Signature,
+        commitment: Option<&str>,
+        encoding: UiTransactionEncoding,
+    ) -> Result<EncodedConfirmedTransactionWithStatusMeta> {
+        let commitment_config = Self::parse_commitment(commitment);
+        let config = RpcTransactionConfig {
+            encoding: Some(encoding),
+            commitment: Some(commitment_config),
+            max_supported_transaction_version: Some(0),
+        };
+
+        self.client
+            .get_transaction_with_config(signature, config)
+            .map_err(SolanaMcpError::from)
+    }
 
     pub fn get_account_info(
         &self,
