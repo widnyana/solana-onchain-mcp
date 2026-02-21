@@ -147,6 +147,10 @@ impl ServerHandler for SolanaMcpHandler {
                     serde_json::to_string_pretty(&result).unwrap_or_else(|_| "Transfer successful".to_string()),
                 )]))
             }
+            SolanaTools::InspectTransactionRawTool(inspect_raw_tool) => inspect_raw_tool.call_tool(&client),
+            SolanaTools::InspectTransactionHumanizedTool(inspect_humanized_tool) => {
+                inspect_humanized_tool.call_tool(&client).await
+            }
         }
     }
 }
