@@ -29,6 +29,8 @@ pub struct SolanaRpcClient {
 }
 
 impl SolanaRpcClient {
+    const MAX_MULTIPLE_ACCOUNTS: usize = 100;
+
     pub fn new(config: &Config) -> Self {
         let client = RpcClient::new_with_timeout_and_commitment(
             config.rpc_url.clone(),
@@ -169,6 +171,13 @@ impl SolanaRpcClient {
         encoding: Option<&str>,
         commitment: Option<&str>,
     ) -> Result<Vec<Option<serde_json::Value>>> {
+        if addresses.len() > Self::MAX_MULTIPLE_ACCOUNTS {
+            return Err(SolanaMcpError::RpcError(format!(
+                "Maximum {} addresses allowed per request",
+                Self::MAX_MULTIPLE_ACCOUNTS
+            )));
+        }
+
         let pubkeys: Vec<Pubkey> = addresses
             .iter()
             .map(|addr| {
