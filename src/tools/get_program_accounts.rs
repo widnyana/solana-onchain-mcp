@@ -23,8 +23,8 @@ Use this tool when you need to:
 - Filter accounts by data size or content
 - Explore program state
 
-WARNING: This can return large result sets for popular programs.
-Use filters (data_size, memcmp) to limit results.
+REQUIRED: At least one filter (data_size or memcmp) is mandatory to prevent resource exhaustion.
+This ensures the query is scoped before making the RPC call.
 
 Common program IDs:
 - TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA (Token Program)
