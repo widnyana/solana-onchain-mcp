@@ -30,11 +30,9 @@ pub enum SolanaMcpError {
     MainnetRiskNotAccepted(String),
 
     #[error("Transaction failed: {0}")]
-    #[allow(dead_code)]
     TransactionFailed(String),
 
     #[error("Invalid token account: {0}")]
-    #[allow(dead_code)]
     InvalidTokenAccount(String),
 }
 
