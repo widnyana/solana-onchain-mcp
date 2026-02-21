@@ -49,11 +49,12 @@ impl SolanaRpcClient {
         }
     }
 
-    fn parse_encoding(encoding: &str) -> UiAccountEncoding {
+    fn parse_encoding(encoding: &str) -> Result<UiAccountEncoding> {
         match encoding {
-            "base58" => UiAccountEncoding::Base58,
-            "jsonParsed" => UiAccountEncoding::JsonParsed,
-            _ => UiAccountEncoding::Base64,
+            "base58" => Ok(UiAccountEncoding::Base58),
+            "base64" => Ok(UiAccountEncoding::Base64),
+            "jsonParsed" => Ok(UiAccountEncoding::JsonParsed),
+            other => Err(SolanaMcpError::InvalidEncoding(other.to_string())),
         }
     }
 
@@ -139,7 +140,7 @@ impl SolanaRpcClient {
             .parse::<Pubkey>()
             .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
 
-        let enc = Self::parse_encoding(encoding.unwrap_or("base64"));
+        let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
         let config = RpcAccountInfoConfig {
             encoding: Some(enc),
             commitment: Some(Self::parse_commitment(commitment)),
@@ -186,7 +187,7 @@ impl SolanaRpcClient {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let enc = Self::parse_encoding(encoding.unwrap_or("base64"));
+        let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
         let config = RpcAccountInfoConfig {
             encoding: Some(enc),
             commitment: Some(Self::parse_commitment(commitment)),
@@ -298,6 +299,14 @@ impl SolanaRpcClient {
         commitment: Option<&str>,
         encoding: Option<&str>,
     ) -> Result<serde_json::Value> {
+        // Require at least one filter BEFORE making the RPC call to prevent resource exhaustion
+        if data_size.is_none() && memcmp.is_none() {
+            return Err(SolanaMcpError::RpcError(
+                "get_program_accounts requires at least one filter (data_size or memcmp) to prevent resource exhaustion. \
+                 Example: use data_size to filter by account size, or memcmp to filter by specific byte patterns.".to_string()
+            ));
+        }
+
         let program = program_id
             .parse::<Pubkey>()
             .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
