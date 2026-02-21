@@ -113,9 +113,9 @@ impl ServerHandler for SolanaMcpHandler {
                     .await
                     .map_err(CallToolError::new)?;
 
-                Ok(CallToolResult::text_content(vec![TextContent::from(
-                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| "Transfer successful".to_string()),
-                )]))
+                Ok(CallToolResult::text_content(vec![
+                    json_to_text(&result).map_err(|e| CallToolError::new(Box::new(e)))?,
+                ]))
             }
             SolanaTools::TransferTokenTool(transfer_token_tool) => {
                 let keypair = self.require_keypair()?;
@@ -125,9 +125,9 @@ impl ServerHandler for SolanaMcpHandler {
                     .await
                     .map_err(CallToolError::new)?;
 
-                Ok(CallToolResult::text_content(vec![TextContent::from(
-                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| "Transfer successful".to_string()),
-                )]))
+                Ok(CallToolResult::text_content(vec![
+                    json_to_text(&result).map_err(|e| CallToolError::new(Box::new(e)))?,
+                ]))
             }
         }
     }

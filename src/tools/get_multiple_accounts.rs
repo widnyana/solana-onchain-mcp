@@ -48,8 +48,8 @@ impl GetMultipleAccountsTool {
             )
             .map_err(CallToolError::new)?;
 
-        Ok(CallToolResult::text_content(vec![TextContent::from(
-            serde_json::to_string_pretty(&accounts).unwrap_or_else(|_| "Accounts data".to_string()),
-        )]))
+        Ok(CallToolResult::text_content(vec![
+            json_to_text(&accounts).map_err(|e| CallToolError::new(Box::new(e)))?,
+        ]))
     }
 }

@@ -43,8 +43,8 @@ impl SimulateTransactionTool {
             )
             .map_err(CallToolError::new)?;
 
-        Ok(CallToolResult::text_content(vec![TextContent::from(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "Simulation result".to_string()),
-        )]))
+        Ok(CallToolResult::text_content(vec![
+            json_to_text(&result).map_err(|e| CallToolError::new(Box::new(e)))?,
+        ]))
     }
 }

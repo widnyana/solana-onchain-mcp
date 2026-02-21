@@ -39,3 +39,9 @@ tool_box!(
         TransferTokenTool
     ]
 );
+
+/// Serialize a value to JSON text for MCP responses.
+/// Uses compact JSON (not pretty) for better performance.
+pub fn json_to_text<T: serde::Serialize>(value: &T) -> Result<TextContent, serde_json::Error> {
+    serde_json::to_string(value).map(TextContent::from)
+}
