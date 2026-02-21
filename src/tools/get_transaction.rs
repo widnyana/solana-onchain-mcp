@@ -1,8 +1,9 @@
 use rust_mcp_sdk::{
     macros::{JsonSchema, mcp_tool},
-    schema::{CallToolError, CallToolResult, TextContent},
+    schema::{CallToolError, CallToolResult},
 };
 
+use super::json_to_text;
 use crate::rpc::SolanaRpcClient;
 
 #[mcp_tool(

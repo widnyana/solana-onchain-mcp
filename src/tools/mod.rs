@@ -20,7 +20,7 @@ pub use get_signatures_for_address::*;
 pub use get_slot::*;
 pub use get_token_accounts_by_owner::*;
 pub use get_transaction::*;
-use rust_mcp_sdk::tool_box;
+use rust_mcp_sdk::{schema::TextContent, tool_box};
 pub use simulate_transaction::*;
 pub use transfer_sol::*;
 pub use transfer_token::*;
