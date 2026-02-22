@@ -322,7 +322,7 @@ impl SolanaRpcClient {
             )));
         }
 
-        let enc = Self::parse_encoding(encoding.unwrap_or("base64"));
+        let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
         let config = RpcProgramAccountsConfig {
             filters: if filters.is_empty() {
                 None
