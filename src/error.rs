@@ -2,40 +2,56 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum SolanaMcpError {
-    #[error("Invalid address '{0}': must be a valid Solana base58 public key (32-44 characters)")]
+    #[error(
+        "Invalid address '{0}': expected base58-encoded Solana public key (32-44 characters, e.g., '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU')"
+    )]
     InvalidAddress(String),
 
-    #[error("Invalid signature '{0}': must be a valid Solana base58 signature (87-88 characters)")]
+    #[error(
+        "Invalid signature '{0}': expected base58-encoded Solana signature (87-88 characters from transaction explorer)"
+    )]
     InvalidSignature(String),
 
-    #[error("RPC request failed: {0}")]
+    #[error(
+        "RPC request failed: {0}. Common causes: network timeout, invalid commitment level, or RPC node rate limits. Try again or use a different RPC endpoint."
+    )]
     RpcError(String),
 
-    #[error("Invalid RPC endpoint URL: {0}")]
+    #[error(
+        "Invalid RPC endpoint URL '{0}': expected https:// or http:// followed by hostname (e.g., 'https://api.devnet.solana.com')"
+    )]
     InvalidEndpoint(String),
 
-    #[error("Invalid encoding '{0}': must be base64, base58, or jsonParsed")]
+    #[error(
+        "Invalid encoding '{0}': must be 'base64', 'base58', or 'jsonParsed'. Use 'base64' for raw data, 'jsonParsed' for decoded token accounts."
+    )]
     InvalidEncoding(String),
 
-    #[error("Serialization error: {0}")]
+    #[error("Serialization error: {0}. Check that JSON input is valid and matches expected schema.")]
     SerializationError(#[from] serde_json::Error),
 
-    #[error("Internal task error")]
+    #[error("Internal task error: async operation failed to complete. This may indicate a runtime issue.")]
     TaskJoinError,
 
-    #[error("Keypair file not found: {0}")]
+    #[error("Keypair file not found: '{0}'. Provide a valid path to a Solana keypair JSON file (array of 64 bytes).")]
     KeypairNotFound(String),
 
-    #[error("Invalid keypair: {0}")]
+    #[error("Invalid keypair: {0}. Expected JSON array of 64 numbers (64-byte Ed25519 keypair).")]
     InvalidKeypair(String),
 
-    #[error("Mainnet requires --accept-risk: {0}")]
+    #[error(
+        "Mainnet operations require --accept-risk flag: {0}. Mainnet involves real funds. Add --accept-risk to proceed."
+    )]
     MainnetRiskNotAccepted(String),
 
-    #[error("Transaction failed: {0}")]
+    #[error(
+        "Transaction failed: {0}. Common causes: insufficient SOL for fees, invalid instruction, or account already exists."
+    )]
     TransactionFailed(String),
 
-    #[error("Invalid token account: {0}")]
+    #[error(
+        "Invalid token account '{0}': expected base58-encoded token account address. For transfers, ensure recipient has an Associated Token Account (ATA)."
+    )]
     InvalidTokenAccount(String),
 }
 

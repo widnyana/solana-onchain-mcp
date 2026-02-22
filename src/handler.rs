@@ -4,16 +4,13 @@ use async_trait::async_trait;
 use rust_mcp_sdk::{
     McpServer,
     mcp_server::ServerHandler,
-    schema::{CallToolError, CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams, RpcError},
+    schema::{
+        CallToolError, CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams, RpcError,
+        TextContent,
+    },
 };
 
-use crate::{
-    config::Config,
-    error::SolanaMcpError,
-    keypair::LoadedKeypair,
-    rpc::SolanaRpcClient,
-    tools::{SolanaTools, json_to_text},
-};
+use crate::{config::Config, error::SolanaMcpError, keypair::LoadedKeypair, rpc::SolanaRpcClient, tools::SolanaTools};
 
 pub struct SolanaMcpHandler {
     client: SolanaRpcClient,
@@ -74,7 +71,7 @@ impl ServerHandler for SolanaMcpHandler {
                 .filter(|t| {
                     !matches!(
                         t.name.as_str(),
-                        "create_associated_token_account" | "transfer_sol" | "transfer_token"
+                        "transfer_sol" | "transfer_token" | "create_ata"
                     )
                 })
                 .collect()
@@ -96,15 +93,13 @@ impl ServerHandler for SolanaMcpHandler {
         match tool {
             SolanaTools::CreateAtaTool(create_ata_tool) => {
                 let keypair = self.require_keypair()?;
-
                 let result = create_ata_tool
                     .call_tool(&client, keypair)
                     .await
                     .map_err(CallToolError::new)?;
-
-                Ok(CallToolResult::text_content(vec![
-                    json_to_text(&result).map_err(|e| CallToolError::new(Box::new(e)))?,
-                ]))
+                Ok(CallToolResult::text_content(vec![TextContent::from(
+                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| "ATA creation successful".to_string()),
+                )]))
             }
             SolanaTools::GetAccountInfoTool(get_account_info_tool) => get_account_info_tool.call_tool(&client),
             SolanaTools::GetBalanceTool(get_balance_tool) => get_balance_tool.call_tool(&client),
@@ -136,9 +131,9 @@ impl ServerHandler for SolanaMcpHandler {
                     .await
                     .map_err(CallToolError::new)?;
 
-                Ok(CallToolResult::text_content(vec![
-                    json_to_text(&result).map_err(|e| CallToolError::new(Box::new(e)))?,
-                ]))
+                Ok(CallToolResult::text_content(vec![TextContent::from(
+                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| "Transfer successful".to_string()),
+                )]))
             }
             SolanaTools::TransferTokenTool(transfer_token_tool) => {
                 let keypair = self.require_keypair()?;
@@ -148,9 +143,9 @@ impl ServerHandler for SolanaMcpHandler {
                     .await
                     .map_err(CallToolError::new)?;
 
-                Ok(CallToolResult::text_content(vec![
-                    json_to_text(&result).map_err(|e| CallToolError::new(Box::new(e)))?,
-                ]))
+                Ok(CallToolResult::text_content(vec![TextContent::from(
+                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| "Transfer successful".to_string()),
+                )]))
             }
         }
     }
