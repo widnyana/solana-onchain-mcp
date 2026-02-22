@@ -7,3 +7,6 @@ pub mod handler;
 pub mod keypair;
 pub mod rpc;
 pub mod tools;
+pub mod utils;
+
+pub use utils::ParsePubkeyExt;
