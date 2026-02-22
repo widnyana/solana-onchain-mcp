@@ -247,7 +247,7 @@ fn parse_system_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedI
             }
         }
         Some(SystemInstruction::Assign) => {
-            if data.len() >= 1 + 32 {
+            if data.len() > 32 {
                 let owner = solana_sdk::bs58::encode(&data[1..33]).into_string();
                 Ok(ParsedInstructionData::Decoded(json!({
                     "type": "Assign",
@@ -260,7 +260,7 @@ fn parse_system_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedI
             }
         }
         Some(SystemInstruction::Transfer) => {
-            if data.len() >= 1 + 8 {
+            if data.len() > 8 {
                 let lamports = u64::from_le_bytes(data[1..9].try_into().unwrap());
                 Ok(ParsedInstructionData::Decoded(json!({
                     "type": "Transfer",
@@ -274,7 +274,6 @@ fn parse_system_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedI
             }
         }
         Some(SystemInstruction::CreateAccountWithSeed) => {
-            let _base = data.len() >= 1 + 32;
             let seed_start = 1 + 32;
             let seed_len_pos = seed_start;
 
@@ -413,14 +412,10 @@ fn parse_token_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedIn
 
     match instruction_type {
         Some(TokenInstruction::InitializeMint) => {
-            if data.len() >= 1 + 1 + 8 + 1 {
+            if data.len() > 9 {
                 let decimals = data[1];
                 let mint_authority_option = data[2];
-                let freeze_authority_option = if data.len() > 1 + 1 + 8 + 1 {
-                    data[10]
-                } else {
-                    0
-                };
+                let freeze_authority_option = if data.len() > 10 { data[10] } else { 0 };
 
                 Ok(ParsedInstructionData::Decoded(json!({
                     "type": "InitializeMint",
@@ -440,7 +435,7 @@ fn parse_token_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedIn
             })))
         }
         Some(TokenInstruction::Transfer) | Some(TokenInstruction::Transfer2) => {
-            if data.len() >= 1 + 8 {
+            if data.len() > 8 {
                 let amount = u64::from_le_bytes(data[1..9].try_into().unwrap());
                 Ok(ParsedInstructionData::Decoded(json!({
                     "type": "Transfer",
@@ -453,7 +448,7 @@ fn parse_token_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedIn
             }
         }
         Some(TokenInstruction::MintTo) | Some(TokenInstruction::MintTo2) => {
-            if data.len() >= 1 + 8 {
+            if data.len() > 8 {
                 let amount = u64::from_le_bytes(data[1..9].try_into().unwrap());
                 Ok(ParsedInstructionData::Decoded(json!({
                     "type": "MintTo",
@@ -466,7 +461,7 @@ fn parse_token_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedIn
             }
         }
         Some(TokenInstruction::Burn) | Some(TokenInstruction::Burn2) => {
-            if data.len() >= 1 + 8 {
+            if data.len() > 8 {
                 let amount = u64::from_le_bytes(data[1..9].try_into().unwrap());
                 Ok(ParsedInstructionData::Decoded(json!({
                     "type": "Burn",
@@ -482,7 +477,7 @@ fn parse_token_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedIn
             "type": "CloseAccount",
         }))),
         Some(TokenInstruction::Approve) | Some(TokenInstruction::Approve2) => {
-            if data.len() >= 1 + 8 {
+            if data.len() > 8 {
                 let amount = u64::from_le_bytes(data[1..9].try_into().unwrap());
                 Ok(ParsedInstructionData::Decoded(json!({
                     "type": "Approve",
@@ -609,7 +604,7 @@ fn parse_raydium_instruction(data: &[u8], _accounts: &[String]) -> Result<Parsed
 
 /// Jupiter instruction parsing (placeholder for future expansion)
 fn parse_jupiter_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
-    if data.len() >= 1 {
+    if !data.is_empty() {
         Ok(ParsedInstructionData::Decoded(json!({
             "type": "JupiterInstruction",
             "instruction": data[0],

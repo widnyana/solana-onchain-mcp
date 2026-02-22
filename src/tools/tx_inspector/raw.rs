@@ -46,51 +46,47 @@ impl InspectTransactionRawTool {
 fn annotate_with_program_names(mut tx: serde_json::Value) -> serde_json::Value {
     if let Some(obj) = tx.as_object_mut() {
         // Add program names to the transaction object
-        if let Some(meta) = obj.get_mut("meta").and_then(|m| m.as_object_mut()) {
-            // Add error interpretation
-            if let Some(err) = meta.get("err") {
-                if !err.is_null() {
-                    let error_interpretation = format_instruction_error(err);
-                    meta.insert(
-                        "error_interpretation".to_string(),
-                        serde_json::json!(error_interpretation),
-                    );
-                }
-            }
+        if let Some(meta) = obj.get_mut("meta").and_then(|m| m.as_object_mut())
+            && let Some(err) = meta.get("err")
+            && !err.is_null()
+        {
+            let error_interpretation = format_instruction_error(err);
+            meta.insert(
+                "error_interpretation".to_string(),
+                serde_json::json!(error_interpretation),
+            );
         }
 
         // Add program info to instructions
-        if let Some(tx_obj) = obj.get_mut("transaction").and_then(|t| t.as_object_mut()) {
-            if let Some(message) = tx_obj.get_mut("message").and_then(|m| m.as_object_mut()) {
-                // First, extract account keys to a Vec<String>
-                let account_keys: Vec<String> = message
-                    .get("accountKeys")
-                    .and_then(|a| a.as_array())
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(|k| {
-                                k.as_object()
-                                    .and_then(|obj| obj.get("pubkey"))
-                                    .or(Some(k))
-                                    .and_then(|v| v.as_str())
-                                    .map(|s| s.to_string())
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
+        if let Some(tx_obj) = obj.get_mut("transaction").and_then(|t| t.as_object_mut())
+            && let Some(message) = tx_obj.get_mut("message").and_then(|m| m.as_object_mut())
+        {
+            // First, extract account keys to a Vec<String>
+            let account_keys: Vec<String> = message
+                .get("accountKeys")
+                .and_then(|a| a.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|k| {
+                            k.as_object()
+                                .and_then(|obj| obj.get("pubkey"))
+                                .or(Some(k))
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string())
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
 
-                // Now mutably borrow to add program names
-                if let Some(instructions) = message.get_mut("instructions").and_then(|i| i.as_array_mut()) {
-                    for instr in instructions.iter_mut() {
-                        if let Some(instr_obj) = instr.as_object_mut() {
-                            if let Some(program_id_index) = instr_obj.get("programIdIndex").and_then(|p| p.as_u64()) {
-                                if let Some(program_id) = account_keys.get(program_id_index as usize) {
-                                    if let Some(program_name) = get_program_name(program_id) {
-                                        instr_obj.insert("programName".to_string(), serde_json::json!(program_name));
-                                    }
-                                }
-                            }
-                        }
+            // Now mutably borrow to add program names
+            if let Some(instructions) = message.get_mut("instructions").and_then(|i| i.as_array_mut()) {
+                for instr in instructions.iter_mut() {
+                    if let Some(instr_obj) = instr.as_object_mut()
+                        && let Some(program_id_index) = instr_obj.get("programIdIndex").and_then(|p| p.as_u64())
+                        && let Some(program_id) = account_keys.get(program_id_index as usize)
+                        && let Some(program_name) = get_program_name(program_id)
+                    {
+                        instr_obj.insert("programName".to_string(), serde_json::json!(program_name));
                     }
                 }
             }
