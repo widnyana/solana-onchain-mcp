@@ -21,6 +21,7 @@ use tokio::task::spawn_blocking;
 use crate::{
     config::Config,
     error::{Result, SolanaMcpError},
+    utils::ParsePubkeyExt,
 };
 
 #[derive(Clone)]
@@ -82,10 +83,20 @@ impl SolanaRpcClient {
         }
     }
 
+    fn serialize_account(account: solana_sdk::account::Account, encoding: UiAccountEncoding) -> serde_json::Value {
+        let data_encoded = Self::encode_account_data(&account.data, encoding);
+        serde_json::json!({
+            "lamports": account.lamports,
+            "owner": account.owner.to_string(),
+            "executable": account.executable,
+            "rent_epoch": account.rent_epoch,
+            "data": data_encoded,
+            "space": account.data.len(),
+        })
+    }
+
     pub fn get_balance(&self, address: &str, commitment: Option<&str>) -> Result<u64> {
-        let pubkey = address
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let pubkey = address.parse_pubkey()?;
 
         let commitment_config = Self::parse_commitment(commitment);
         let response = self
@@ -155,9 +166,7 @@ impl SolanaRpcClient {
         encoding: Option<&str>,
         commitment: Option<&str>,
     ) -> Result<Option<serde_json::Value>> {
-        let pubkey = address
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let pubkey = address.parse_pubkey()?;
 
         let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
         let config = RpcAccountInfoConfig {
@@ -172,17 +181,7 @@ impl SolanaRpcClient {
             .get_account_with_config(&pubkey, config)
             .map_err(SolanaMcpError::from)?;
 
-        Ok(response.value.map(|acc| {
-            let data_encoded = Self::encode_account_data(&acc.data, enc);
-            serde_json::json!({
-                "lamports": acc.lamports,
-                "owner": acc.owner.to_string(),
-                "executable": acc.executable,
-                "rent_epoch": acc.rent_epoch,
-                "data": data_encoded,
-                "space": acc.data.len(),
-            })
-        }))
+        Ok(response.value.map(|acc| Self::serialize_account(acc, enc)))
     }
 
     pub fn get_multiple_accounts(
@@ -200,10 +199,7 @@ impl SolanaRpcClient {
 
         let pubkeys: Vec<Pubkey> = addresses
             .iter()
-            .map(|addr| {
-                addr.parse::<Pubkey>()
-                    .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))
-            })
+            .map(|addr| addr.parse_pubkey())
             .collect::<Result<Vec<_>>>()?;
 
         let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
@@ -222,19 +218,7 @@ impl SolanaRpcClient {
         Ok(response
             .value
             .into_iter()
-            .map(|opt_acc| {
-                opt_acc.map(|acc| {
-                    let data_encoded = Self::encode_account_data(&acc.data, enc);
-                    serde_json::json!({
-                        "lamports": acc.lamports,
-                        "owner": acc.owner.to_string(),
-                        "executable": acc.executable,
-                        "rent_epoch": acc.rent_epoch,
-                        "data": data_encoded,
-                        "space": acc.data.len(),
-                    })
-                })
-            })
+            .map(|opt_acc| opt_acc.map(|acc| Self::serialize_account(acc, enc)))
             .collect())
     }
 
@@ -245,9 +229,7 @@ impl SolanaRpcClient {
         program_id: Option<&str>,
         _commitment: Option<&str>,
     ) -> Result<serde_json::Value> {
-        let owner = owner_address
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let owner = owner_address.parse_pubkey()?;
 
         let token_account_filter = match (mint, program_id) {
             (Some(m), None) => TokenAccountsFilter::Mint(
@@ -281,9 +263,7 @@ impl SolanaRpcClient {
         until: Option<&str>,
         commitment: Option<&str>,
     ) -> Result<serde_json::Value> {
-        let pubkey = address
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let pubkey = address.parse_pubkey()?;
 
         let before_sig = before
             .map(|s| s.parse::<Signature>())
@@ -326,9 +306,7 @@ impl SolanaRpcClient {
             ));
         }
 
-        let program = program_id
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let program = program_id.parse_pubkey()?;
 
         let mut filters = Vec::new();
         if let Some(size) = data_size {
@@ -366,17 +344,9 @@ impl SolanaRpcClient {
         let result: Vec<serde_json::Value> = accounts
             .into_iter()
             .map(|(pubkey, account)| {
-                let data_encoded = Self::encode_account_data(&account.data, enc);
                 serde_json::json!({
                     "pubkey": pubkey.to_string(),
-                    "account": {
-                        "lamports": account.lamports,
-                        "owner": account.owner.to_string(),
-                        "executable": account.executable,
-                        "rent_epoch": account.rent_epoch,
-                        "data": data_encoded,
-                        "space": account.data.len(),
-                    }
+                    "account": Self::serialize_account(account, enc),
                 })
             })
             .collect();
