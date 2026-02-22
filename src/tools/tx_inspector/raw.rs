@@ -8,6 +8,7 @@ use rust_mcp_sdk::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::{format_instruction_error, get_program_name};
 use crate::rpc::SolanaRpcClient;
 
 #[mcp_tool(
@@ -49,7 +50,7 @@ fn annotate_with_program_names(mut tx: serde_json::Value) -> serde_json::Value {
             // Add error interpretation
             if let Some(err) = meta.get("err") {
                 if !err.is_null() {
-                    let error_interpretation = interpret_error(err);
+                    let error_interpretation = format_instruction_error(err);
                     meta.insert(
                         "error_interpretation".to_string(),
                         serde_json::json!(error_interpretation),
@@ -96,57 +97,4 @@ fn annotate_with_program_names(mut tx: serde_json::Value) -> serde_json::Value {
         }
     }
     tx
-}
-
-fn get_program_name(pubkey: &str) -> Option<&'static str> {
-    let programs = [
-        ("11111111111111111111111111111111", "System Program"),
-        (
-            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-            "Token Program",
-        ),
-        (
-            "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-            "Token2022 Program",
-        ),
-        (
-            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-            "Associated Token Account",
-        ),
-        (
-            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
-            "Raydium DEX",
-        ),
-        (
-            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
-            "Jupiter Aggregator",
-        ),
-        ("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctWtC", "Orca DEX"),
-    ];
-
-    for (id, name) in programs {
-        if id == pubkey {
-            return Some(name);
-        }
-    }
-    None
-}
-
-fn interpret_error(err: &serde_json::Value) -> String {
-    if let Some(obj) = err.as_object() {
-        if let Some(instr_err) = obj.get("InstructionError") {
-            if let Some(arr) = instr_err.as_array() {
-                if arr.len() == 2 {
-                    let index = &arr[0];
-                    let error_type = &arr[1];
-                    return format!(
-                        "Instruction {} failed: {}",
-                        index,
-                        serde_json::to_string(error_type).unwrap_or_else(|_| "unknown error".to_string())
-                    );
-                }
-            }
-        }
-    }
-    serde_json::to_string(err).unwrap_or_else(|_| "unknown error".to_string())
 }
