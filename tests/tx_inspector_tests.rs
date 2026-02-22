@@ -57,9 +57,9 @@ mod get_program_name_tests {
     }
 
     #[test]
-    fn test_orca_dex() {
-        let result = get_program_name("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctWtC");
-        assert_eq!(result, Some("Orca DEX"));
+    fn test_orca_whirlpool() {
+        let result = get_program_name("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc");
+        assert_eq!(result, Some("Orca Whirlpool"));
     }
 
     #[test]

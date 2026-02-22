@@ -48,3 +48,30 @@ pub fn format_instruction_error(err: &serde_json::Value) -> String {
     }
     serde_json::to_string(err).unwrap_or_else(|_| "unknown error".to_string())
 }
+
+/// Format an InstructionError with program-specific error interpretation
+pub fn format_instruction_error_with_program(err: &serde_json::Value, program_id: &str) -> String {
+    if let Some(obj) = err.as_object()
+        && let Some(instr_err) = obj.get("InstructionError")
+        && let Some(arr) = instr_err.as_array()
+        && arr.len() == 2
+    {
+        let index = &arr[0];
+        let error_type = &arr[1];
+
+        // Try to interpret Custom error codes
+        if let Some(error_obj) = error_type.as_object()
+            && let Some(custom_code) = error_obj.get("Custom").and_then(|c| c.as_u64())
+        {
+            let interpreted = interpret_error(program_id, custom_code as u32);
+            return format!("Instruction {} failed: {}", index, interpreted);
+        }
+
+        return format!(
+            "Instruction {} failed: {}",
+            index,
+            serde_json::to_string(error_type).unwrap_or_else(|_| "unknown error".to_string())
+        );
+    }
+    serde_json::to_string(err).unwrap_or_else(|_| "unknown error".to_string())
+}
