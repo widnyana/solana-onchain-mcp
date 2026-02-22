@@ -1,27 +1,25 @@
 # Usage Guide
 
-Complete reference for configuring and using solana-onchain-mcp.
-
 ## Configuration
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SOLANA_NETWORK` | `devnet` | Network: `mainnet`, `devnet`, `testnet`, or custom RPC URL |
-| `SOLANA_KEYPAIR_PATH` | (none) | Path to keypair JSON file (required for transfers) |
-| `SOLANA_ACCEPT_RISK` | `false` | Set `true` to enable transfers on mainnet/custom networks |
-| `RUST_LOG` | `info` | Log level (`trace`, `debug`, `info`, `warn`, `error`) |
+| `SOLANA_NETWORK` | `devnet` | `mainnet`, `devnet`, `testnet`, or RPC URL |
+| `SOLANA_KEYPAIR_PATH` | (none) | Path to keypair JSON (required for transfers) |
+| `SOLANA_ACCEPT_RISK` | `false` | Set `true` for transfers on mainnet/custom |
+| `RUST_LOG` | `info` | Log level |
 
 ### CLI Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--accept-risk` | false | Accept risk of transfers on mainnet/custom networks |
-| `--http` | false | Enable HTTP transport (planned) |
-| `--port` | 3000 | HTTP server port (planned) |
-| `--host` | 127.0.0.1 | HTTP bind address (planned) |
-| `--http-allow-keypair` | false | Allow keypair in HTTP mode (planned) |
+| `--accept-risk` | false | Enable transfers on mainnet/custom |
+| `--http` | false | HTTP transport mode |
+| `--port` | 3000 | HTTP port (requires `--http`) |
+| `--host` | 127.0.0.1 | HTTP host (requires `--http`) |
+| `--http-allow-keypair` | false | Allow keypair in HTTP mode |
 
 ### Networks
 
@@ -32,168 +30,243 @@ Complete reference for configuring and using solana-onchain-mcp.
 | `testnet` | `https://api.testnet.solana.com` |
 | Custom | Any `http://` or `https://` URL |
 
-**Note:** `https://` URLs cannot point to private IPs (localhost, 10.x, 172.16-31.x, 192.168.x). Use `http://` for local development.
+Private IPs blocked for `https://`. Use `http://` for local RPC.
 
 ## Tools
 
-### Read Tools (no keypair required)
+### Read Tools
 
 #### get_balance
 
-Get SOL balance for a Solana address.
+SOL balance for an address.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `address` | string | Yes | Solana address (base58, 32-44 chars) |
-| `commitment` | string | No | Commitment level (default: `confirmed`) |
+| `address` | string | Yes | Solana address (base58) |
+| `commitment` | string | No | `processed`, `confirmed` (default), `finalized` |
 
-**Returns:** Balance in lamports (1 SOL = 1,000,000,000 lamports)
+Returns: balance in lamports (1 SOL = 10^9 lamports)
 
----
+#### get_account_info
 
-#### get_slot
-
-Get current slot/block height.
+Account data and metadata.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `commitment` | string | No | Commitment level (default: `confirmed`) |
+| `address` | string | Yes | Solana address |
+| `encoding` | string | No | `base64` (default), `base58`, `jsonParsed` |
+| `commitment` | string | No | Commitment level |
 
-**Returns:** Current slot number
+Returns: account data, owner, lamports, executable flag
 
----
+#### get_multiple_accounts
+
+Batch fetch up to 100 accounts.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `addresses` | [string] | Yes | Array of addresses (max 100) |
+| `encoding` | string | No | `base64` (default), `base58`, `jsonParsed` |
+| `commitment` | string | No | Commitment level |
+
+Returns: array of accounts (null for non-existent)
+
+#### get_token_accounts_by_owner
+
+SPL token accounts for a wallet.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `owner_address` | string | Yes | Wallet address |
+| `mint` | string | No* | Filter by token mint |
+| `program_id` | string | No* | Filter by token program |
+| `commitment` | string | No | Commitment level |
+
+*Must specify `mint` OR `program_id` (not both).
+
+Common program IDs:
+- `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` (Token)
+- `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` (Token-2022)
+
+#### get_program_accounts
+
+Accounts owned by a program.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `program_id` | string | Yes | Program address |
+| `data_size` | u64 | No* | Filter by data size |
+| `memcmp.offset` | u64 | No* | Memcmp filter offset |
+| `memcmp.bytes` | string | No* | Memcmp filter bytes (base58) |
+| `encoding` | string | No | `base64` (default), `base58`, `jsonParsed` |
+| `commitment` | string | No | Commitment level |
+
+*At least one filter (`data_size` or `memcmp`) is required.
 
 #### get_transaction
 
-Fetch transaction details by signature.
+Transaction details by signature.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `signature` | string | Yes | Transaction signature (base58, 87-88 chars) |
-| `commitment` | string | No | Commitment level (default: `confirmed`) |
+| `signature` | string | Yes | Transaction signature (base58) |
+| `commitment` | string | No | Commitment level |
 
-**Returns:** Full transaction data including status, fees, and account changes
+Returns: full transaction with meta, status, fees
 
----
+#### get_signatures_for_address
 
-### Write Tools (requires keypair)
-
-#### transfer_sol [IRREVERSIBLE]
-
-Transfer SOL from configured wallet to recipient.
+Transaction history for an address.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `to_address` | string | Yes | Recipient Solana address |
-| `amount_lamports` | u64 | Yes | Amount in lamports (1 SOL = 1,000,000,000) |
+| `address` | string | Yes | Address to query |
+| `limit` | u64 | No | Max results (1-1000, default 100) |
+| `before` | string | No | Paginate from this signature |
+| `until` | string | No | Paginate until this signature |
+| `commitment` | string | No | Commitment level |
 
-**Returns:** Transaction signature, amount, addresses
+Returns: signatures with slot, blockTime, err, confirmationStatus
 
-**Note:** Transaction fee (~5000 lamports) deducted from sender.
+#### get_signature_status
 
----
-
-#### transfer_token [IRREVERSIBLE]
-
-Transfer SPL tokens (USDC, USDT, etc.) to recipient.
+Check if transaction is confirmed.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `to_address` | string | Yes | Recipient Solana address |
+| `signature` | string | Yes | Transaction signature |
+
+Returns: `{ confirmed: bool, slot: number | null }`
+
+#### get_slot
+
+Current slot/block height.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `commitment` | string | No | Commitment level |
+
+#### simulate_transaction
+
+Test transaction without signing.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `transaction` | string | Yes | Base64 serialized transaction |
+| `encoding` | string | No | `base64` (default), `base58` |
+| `replace_recent_blockhash` | bool | No | Use current blockhash |
+| `commitment` | string | No | Commitment level |
+
+Returns: logs, compute units, errors
+
+#### inspect_transaction_raw
+
+Raw transaction with program name annotations.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `signature` | string | Yes | Transaction signature |
+| `commitment` | string | No | Commitment level |
+
+Returns: full transaction JSON with `programName` and `error_interpretation` fields
+
+#### inspect_transaction_humanized
+
+Human-readable transaction summary.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `signature` | string | Yes | Transaction signature |
+| `commitment` | string | No | Commitment level |
+
+Returns: status, fee, summary, instructions with explanations, accounts
+
+### Write Tools
+
+#### transfer_sol
+
+Transfer SOL to recipient.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `to_address` | string | Yes | Recipient address |
+| `amount_lamports` | u64 | Yes | Amount in lamports |
+
+Fee: ~5000 lamports deducted from sender.
+
+#### transfer_token
+
+Transfer SPL tokens.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `to_address` | string | Yes | Recipient address |
 | `token_mint` | string | Yes | Token mint address |
-| `amount` | f64 | Yes | Amount in UI units (e.g., 1.5 = 1.5 tokens) |
-| `decimals` | u8 | Yes | Token decimals (6 for USDC, 9 for native SOL) |
+| `amount` | f64 | Yes | Amount in UI units (e.g., 1.5) |
+| `decimals` | u8 | Yes | Token decimals (6 for USDC) |
 
-**Returns:** Transaction signature, token mint, amount (raw and UI), ATA addresses
+Recipient must have an ATA for this token.
 
-**Note:** Recipient must have an Associated Token Account (ATA) for this token.
+#### create_associated_token_account
+
+Create token account for a mint.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `token_mint` | string | Yes | Token mint address |
+| `owner` | string | No | Owner (defaults to your wallet) |
+
+Costs rent-exempt balance in SOL.
 
 ## Commitment Levels
 
 | Level | Latency | Description |
 |-------|---------|-------------|
-| `processed` | Fastest | Transaction included in block, may rollback |
-| `confirmed` | ~400ms | Default. Block produced by supermajority |
-| `finalized` | ~1s | Permanent, cannot be rolled back |
-
-## Examples
-
-### Get Balance
-
-```json
-{
-  "tool": "get_balance",
-  "arguments": {
-    "address": "7Np41oeYqPefeNQEHSv1UDhYrehxin3NStELsSKCT4K2",
-    "commitment": "confirmed"
-  }
-}
-```
-
-### Transfer SOL
-
-```json
-{
-  "tool": "transfer_sol",
-  "arguments": {
-    "to_address": "7Np41oeYqPefeNQEHSv1UDhYrehxin3NStELsSKCT4K2",
-    "amount_lamports": 1000000000
-  }
-}
-```
-
-### Transfer USDC (devnet)
-
-```json
-{
-  "tool": "transfer_token",
-  "arguments": {
-    "to_address": "7Np41oeYqPefeNQEHSv1UDhYrehxin3NStELsSKCT4K2",
-    "token_mint": "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr",
-    "amount": 10.0,
-    "decimals": 6
-  }
-}
-```
+| `processed` | Fastest | In block, may rollback |
+| `confirmed` | ~400ms | Default. Supermajority produced |
+| `finalized` | ~1s | Permanent |
 
 ## Security
 
 ### Mainnet Guard
 
-Transfers on `mainnet` or custom networks require explicit risk acceptance:
+Transfers on `mainnet` or custom networks require:
 
 ```bash
-# Environment variable
 export SOLANA_ACCEPT_RISK=true
-
-# Or CLI flag
+# or
 solana-onchain-mcp --accept-risk
 ```
 
-This prevents accidental mainnet transactions. Devnet and testnet do not require this.
+Devnet/testnet don't require this.
 
-### Keypair Best Practices
+### HTTP Mode
 
-- **Restrict permissions:** `chmod 600 ~/.config/solana/id.json`
-- **Never commit:** Add keypair paths to `.gitignore`
-- **Test first:** Use devnet/testnet before mainnet
-- **Backup securely:** Store keypair backups in encrypted storage
+```bash
+# Read-only (keypair disabled)
+solana-onchain-mcp --http --port 3000
+
+# With keypair (localhost only)
+solana-onchain-mcp --http --http-allow-keypair --accept-risk --host 127.0.0.1
+```
+
+`--http-allow-keypair` requires:
+- `--accept-risk`
+- `--host 127.0.0.1` (localhost only)
+
+### Keypair Safety
+
+- `chmod 600` on keypair file
+- Add to `.gitignore`
+- Test on devnet first
+- Backup securely
 
 ### Read-Only Mode
 
 If `SOLANA_KEYPAIR_PATH` is unset or invalid:
-- Server starts with warning (not error)
-- Transfer tools are filtered from available tools
-- Read operations work normally
-
-### HTTP Mode Security (Planned)
-
-HTTP mode has additional restrictions:
-- Keypair disabled by default
-- `--http-allow-keypair` requires:
-  - `--accept-risk` flag
-  - `--host 127.0.0.1` (localhost only)
-- Warning: "Ensure reverse proxy with auth!"
+- Server starts with warning
+- Write tools hidden
+- Read tools work normally
 
 ## Troubleshooting
 
@@ -203,9 +276,7 @@ HTTP mode has additional restrictions:
 Warning: Invalid keypair path, running in read-only mode
 ```
 
-Check that:
-- Path exists and is readable
-- File contains valid JSON array of 64 bytes
+Check: path exists, file is valid JSON array of 64 bytes.
 
 ### Mainnet Risk Not Accepted
 
@@ -213,7 +284,7 @@ Check that:
 Error: Mainnet requires --accept-risk
 ```
 
-Set `SOLANA_ACCEPT_RISK=true` or pass `--accept-risk` flag.
+Set `SOLANA_ACCEPT_RISK=true` or `--accept-risk`.
 
 ### Invalid Address
 
@@ -221,11 +292,11 @@ Set `SOLANA_ACCEPT_RISK=true` or pass `--accept-risk` flag.
 Error: InvalidAddress - must be 32-44 characters
 ```
 
-Ensure address is valid base58-encoded Solana public key.
+Use valid base58 Solana public key.
 
 ### RPC Errors
 
 Common causes:
-- Network connectivity issues
-- Rate limiting (use custom RPC endpoint)
-- Invalid network URL
+- Network issues
+- Rate limiting (use custom RPC)
+- Invalid URL
