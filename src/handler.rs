@@ -117,6 +117,9 @@ impl ServerHandler for SolanaMcpHandler {
             SolanaTools::GetSignaturesForAddressTool(get_signatures_for_address_tool) => {
                 get_signatures_for_address_tool.call_tool(&client)
             }
+            SolanaTools::GetSignatureStatusTool(get_signature_status_tool) => {
+                get_signature_status_tool.call_tool(&client).await
+            }
             SolanaTools::GetSlotTool(get_slot_tool) => get_slot_tool.call_tool(&client),
             SolanaTools::GetTokenAccountsByOwnerTool(get_token_accounts_by_owner_tool) => {
                 get_token_accounts_by_owner_tool.call_tool(&client)
