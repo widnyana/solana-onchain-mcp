@@ -149,7 +149,7 @@ impl ServerHandler for SolanaMcpHandler {
             }
             SolanaTools::InspectTransactionRawTool(inspect_raw_tool) => inspect_raw_tool.call_tool(&client),
             SolanaTools::InspectTransactionHumanizedTool(inspect_humanized_tool) => {
-                inspect_humanized_tool.call_tool(&client).await
+                inspect_humanized_tool.call_tool(&client)
             }
         }
     }
