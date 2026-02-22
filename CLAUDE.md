@@ -136,12 +136,32 @@ From `src/tools/tx_inspector/`:
 
 ## Git Workflow
 
-- Feature branches: `feat/*`
-- Fix branches: `feat/fix-*` or `fix/*`
-- Refactor branches: `refactor/*`
-- Merge strategy: Cherry-pick for fixes, merge commits for features
+This project follows **Trunk Based Development** with rebase-only integration.
 
-### Worktree Pattern (REQUIRED for feature work)
+### Branch Strategy
+
+- **Trunk**: `main` - always deployable, no long-lived branches
+- **Short-lived branches**: `feat/*`, `fix/*`, `refactor/*` - deleted after integration
+- **Branch lifetime**: < 1 day preferred, max 2-3 days
+
+### Integration Rules
+
+**NEVER use `git merge`**. Always use rebase:
+
+```bash
+# CORRECT: Rebase feature branch onto main
+git checkout feat/my-feature
+git rebase main
+
+# CORRECT: Fast-forward main to feature
+git checkout main
+git rebase feat/my-feature
+
+# WRONG: Never use merge
+git merge feat/my-feature  # NEVER DO THIS
+```
+
+### Worktree Pattern (REQUIRED for all feature work)
 
 ALWAYS use git worktrees for feature development. Never work directly on main.
 
@@ -151,15 +171,30 @@ git worktree add .worktree/feat-my-feature -b feat/my-feature
 
 # Work in the worktree
 cd .worktree/feat-my-feature
-# ... make changes, commit, push ...
+# ... make changes, commit ...
 
-# After merge, clean up
+# Rebase onto main before integration
+git fetch origin
+git rebase origin/main
+
+# From main worktree, fast-forward main
+git checkout main
+git rebase feat/my-feature
+
+# Clean up
 git worktree remove .worktree/feat-my-feature
 git worktree prune
+git branch -d feat/my-feature
 ```
 
-**Rules:**
+**Worktree Rules:**
 - All worktrees MUST be inside `.worktree/` directory
 - NEVER use `rm -rf` to remove worktrees - use `git worktree remove`
 - Always run `git worktree prune` after cleanup
 - `.worktree/` should be in `.gitignore`
+
+### Commit Guidelines
+
+- Atomic commits: one logical change per commit
+- Conventional format: `type(scope): description`
+- Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
