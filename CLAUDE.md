@@ -146,6 +146,8 @@ This project follows **Trunk Based Development** with rebase-only integration.
 
 ### Integration Rules
 
+**Keep git history linear.** No merge commits allowed.
+
 **NEVER use `git merge`**. Always use rebase:
 
 ```bash
