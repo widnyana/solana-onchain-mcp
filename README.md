@@ -45,12 +45,13 @@ cargo install --git https://github.com/widnyana/solana-onchain-mcp
 
 ### VS Code
 
-`settings.json` (requires [MCP extension](https://marketplace.visualstudio.com/items?itemName=anthropic.mcp)):
+`.vscode/mcp.json` (see [MCP Server docs](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)):
 
 ```json
 {
-  "mcp.servers": {
+  "servers": {
     "solana": {
+      "type": "stdio",
       "command": "solana-onchain-mcp",
       "env": { "SOLANA_NETWORK": "devnet" }
     }
