@@ -1,3 +1,8 @@
+use rust_mcp_sdk::{
+    schema::{CallToolResult, TextContent},
+    tool_box,
+};
+
 mod create_ata;
 mod get_account_info;
 mod get_balance;
@@ -22,7 +27,6 @@ pub use get_signatures_for_address::*;
 pub use get_slot::*;
 pub use get_token_accounts_by_owner::*;
 pub use get_transaction::*;
-use rust_mcp_sdk::{schema::TextContent, tool_box};
 pub use simulate_transaction::*;
 pub use transfer_sol::*;
 pub use transfer_token::*;
@@ -46,8 +50,20 @@ tool_box!(
     ]
 );
 
+/// Helper to create a JSON result from a serializable value.
+/// Falls back to the provided string if serialization fails.
+pub fn json_result<T: serde::Serialize>(value: T, fallback: &str) -> CallToolResult {
+    CallToolResult::text_content(vec![TextContent::from(
+        serde_json::to_string_pretty(&value).unwrap_or_else(|_| fallback.to_string()),
+    )])
+}
+
+/// Helper to create a text result from a message.
+pub fn text_result(msg: impl Into<String>) -> CallToolResult {
+    CallToolResult::text_content(vec![TextContent::from(msg.into())])
+}
+
 /// Serialize a value to JSON text for MCP responses.
-/// Uses compact JSON (not pretty) for better performance.
 pub fn json_to_text<T: serde::Serialize>(value: &T) -> Result<TextContent, serde_json::Error> {
     serde_json::to_string(value).map(TextContent::from)
 }
