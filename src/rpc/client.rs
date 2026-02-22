@@ -83,6 +83,18 @@ impl SolanaRpcClient {
         }
     }
 
+    fn serialize_account(account: solana_sdk::account::Account, encoding: UiAccountEncoding) -> serde_json::Value {
+        let data_encoded = Self::encode_account_data(&account.data, encoding);
+        serde_json::json!({
+            "lamports": account.lamports,
+            "owner": account.owner.to_string(),
+            "executable": account.executable,
+            "rent_epoch": account.rent_epoch,
+            "data": data_encoded,
+            "space": account.data.len(),
+        })
+    }
+
     pub fn get_balance(&self, address: &str, commitment: Option<&str>) -> Result<u64> {
         let pubkey = address.parse_pubkey()?;
 
@@ -169,17 +181,7 @@ impl SolanaRpcClient {
             .get_account_with_config(&pubkey, config)
             .map_err(SolanaMcpError::from)?;
 
-        Ok(response.value.map(|acc| {
-            let data_encoded = Self::encode_account_data(&acc.data, enc);
-            serde_json::json!({
-                "lamports": acc.lamports,
-                "owner": acc.owner.to_string(),
-                "executable": acc.executable,
-                "rent_epoch": acc.rent_epoch,
-                "data": data_encoded,
-                "space": acc.data.len(),
-            })
-        }))
+        Ok(response.value.map(|acc| Self::serialize_account(acc, enc)))
     }
 
     pub fn get_multiple_accounts(
@@ -216,19 +218,7 @@ impl SolanaRpcClient {
         Ok(response
             .value
             .into_iter()
-            .map(|opt_acc| {
-                opt_acc.map(|acc| {
-                    let data_encoded = Self::encode_account_data(&acc.data, enc);
-                    serde_json::json!({
-                        "lamports": acc.lamports,
-                        "owner": acc.owner.to_string(),
-                        "executable": acc.executable,
-                        "rent_epoch": acc.rent_epoch,
-                        "data": data_encoded,
-                        "space": acc.data.len(),
-                    })
-                })
-            })
+            .map(|opt_acc| opt_acc.map(|acc| Self::serialize_account(acc, enc)))
             .collect())
     }
 
@@ -354,17 +344,9 @@ impl SolanaRpcClient {
         let result: Vec<serde_json::Value> = accounts
             .into_iter()
             .map(|(pubkey, account)| {
-                let data_encoded = Self::encode_account_data(&account.data, enc);
                 serde_json::json!({
                     "pubkey": pubkey.to_string(),
-                    "account": {
-                        "lamports": account.lamports,
-                        "owner": account.owner.to_string(),
-                        "executable": account.executable,
-                        "rent_epoch": account.rent_epoch,
-                        "data": data_encoded,
-                        "space": account.data.len(),
-                    }
+                    "account": Self::serialize_account(account, enc),
                 })
             })
             .collect();
