@@ -21,6 +21,7 @@ use tokio::task::spawn_blocking;
 use crate::{
     config::Config,
     error::{Result, SolanaMcpError},
+    utils::ParsePubkeyExt,
 };
 
 #[derive(Clone)]
@@ -83,9 +84,7 @@ impl SolanaRpcClient {
     }
 
     pub fn get_balance(&self, address: &str, commitment: Option<&str>) -> Result<u64> {
-        let pubkey = address
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let pubkey = address.parse_pubkey()?;
 
         let commitment_config = Self::parse_commitment(commitment);
         let response = self
@@ -155,9 +154,7 @@ impl SolanaRpcClient {
         encoding: Option<&str>,
         commitment: Option<&str>,
     ) -> Result<Option<serde_json::Value>> {
-        let pubkey = address
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let pubkey = address.parse_pubkey()?;
 
         let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
         let config = RpcAccountInfoConfig {
@@ -200,10 +197,7 @@ impl SolanaRpcClient {
 
         let pubkeys: Vec<Pubkey> = addresses
             .iter()
-            .map(|addr| {
-                addr.parse::<Pubkey>()
-                    .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))
-            })
+            .map(|addr| addr.parse_pubkey())
             .collect::<Result<Vec<_>>>()?;
 
         let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
@@ -245,9 +239,7 @@ impl SolanaRpcClient {
         program_id: Option<&str>,
         _commitment: Option<&str>,
     ) -> Result<serde_json::Value> {
-        let owner = owner_address
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let owner = owner_address.parse_pubkey()?;
 
         let token_account_filter = match (mint, program_id) {
             (Some(m), None) => TokenAccountsFilter::Mint(
@@ -281,9 +273,7 @@ impl SolanaRpcClient {
         until: Option<&str>,
         commitment: Option<&str>,
     ) -> Result<serde_json::Value> {
-        let pubkey = address
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let pubkey = address.parse_pubkey()?;
 
         let before_sig = before
             .map(|s| s.parse::<Signature>())
@@ -326,9 +316,7 @@ impl SolanaRpcClient {
             ));
         }
 
-        let program = program_id
-            .parse::<Pubkey>()
-            .map_err(|e| SolanaMcpError::InvalidAddress(e.to_string()))?;
+        let program = program_id.parse_pubkey()?;
 
         let mut filters = Vec::new();
         if let Some(size) = data_size {
