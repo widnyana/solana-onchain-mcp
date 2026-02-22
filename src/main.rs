@@ -35,6 +35,11 @@ struct Args {
 }
 
 fn validate_http_security(args: &Args, config: &mut Config) -> Result<(), String> {
+    // http-allow-keypair requires --http
+    if args.http_allow_keypair && !args.http {
+        return Err("--http-allow-keypair requires --http".into());
+    }
+
     if !args.http {
         return Ok(());
     }
@@ -190,6 +195,21 @@ mod tests {
         assert!(args.http);
         assert!(args.http_allow_keypair);
         assert!(args.accept_risk);
+    }
+
+    #[test]
+    fn test_http_allow_keypair_requires_http() {
+        let mut config = Config::default();
+        let args = Args {
+            accept_risk: true,
+            http: false, // http not set
+            port: 3000,
+            host: "127.0.0.1".to_string(),
+            http_allow_keypair: true,
+        };
+        let result = validate_http_security(&args, &mut config);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("--http-allow-keypair requires --http"));
     }
 
     #[test]
