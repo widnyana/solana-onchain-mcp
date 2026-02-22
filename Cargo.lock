@@ -4694,6 +4694,7 @@ dependencies = [
  "bincode",
  "bs58",
  "clap",
+ "lazy_static",
  "rust-mcp-sdk",
  "schemars",
  "serde",
