@@ -168,10 +168,10 @@ lazy_static! {
             category: ProgramCategory::DeFi,
             parser: parse_jupiter_instruction,
         },
-        // Orca DEX
+        // Orca Whirlpool DEX
         ProgramInfo {
-            pubkey: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctWtC".to_string(),
-            name: "Orca DEX".to_string(),
+            pubkey: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc".to_string(),
+            name: "Orca Whirlpool".to_string(),
             category: ProgramCategory::DeFi,
             parser: parse_orca_instruction,
         },
@@ -585,20 +585,82 @@ fn parse_ata_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInst
     }
 }
 
-/// Raydium instruction parsing (placeholder for future expansion)
-fn parse_raydium_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
-    if data.len() >= 8 {
-        // Raydium instructions typically start with a discriminator
-        let discriminator = hex::encode(&data[..8.min(data.len())]);
-        Ok(ParsedInstructionData::Decoded(json!({
-            "type": "RaydiumInstruction",
-            "discriminator": discriminator,
-            "note": "Full instruction parsing not yet implemented"
-        })))
-    } else {
-        Ok(ParsedInstructionData::Raw(
-            "Raydium instruction data".to_string(),
-        ))
+/// Raydium AMM discriminators (Anchor: sha256("global:<instruction_name>")[0..8])
+mod raydium {
+    pub const SWAP_BASE_IN: [u8; 8] = [0x2a, 0xec, 0x48, 0xa2, 0xf2, 0x18, 0x27, 0x54];
+    pub const SWAP_BASE_OUT: [u8; 8] = [0xa3, 0xd2, 0x9b, 0xd0, 0xaf, 0x92, 0xd5, 0x96];
+    pub const ADD_LIQUIDITY: [u8; 8] = [0xb5, 0x9d, 0x59, 0x43, 0x8f, 0xb6, 0x34, 0x48];
+    pub const REMOVE_LIQUIDITY: [u8; 8] = [0x50, 0x55, 0xd1, 0x48, 0x18, 0xce, 0xb1, 0x6c];
+}
+
+/// Parse Raydium AMM instruction
+fn parse_raydium_instruction(data: &[u8], accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
+    if data.len() < 8 {
+        return Ok(ParsedInstructionData::Raw(
+            "Raydium instruction data too short".to_string(),
+        ));
+    }
+
+    let discriminator = &data[0..8];
+
+    match discriminator {
+        d if *d == raydium::SWAP_BASE_IN => {
+            // swap_base_in: [discriminator:8][amount_in:8][minimum_amount_out:8]
+            if data.len() >= 24 {
+                let amount_in = u64::from_le_bytes(data[8..16].try_into().unwrap_or([0; 8]));
+                let min_out = u64::from_le_bytes(data[16..24].try_into().unwrap_or([0; 8]));
+
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "SwapBaseIn",
+                    "description": "Swap tokens with fixed input amount",
+                    "amount_in": amount_in,
+                    "minimum_amount_out": min_out,
+                    "source_account": accounts.first().unwrap_or(&"unknown".to_string()),
+                    "destination_account": accounts.get(1).unwrap_or(&"unknown".to_string()),
+                })))
+            } else {
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "SwapBaseIn",
+                    "note": "Incomplete data"
+                })))
+            }
+        }
+        d if *d == raydium::SWAP_BASE_OUT => {
+            // swap_base_out: [discriminator:8][max_amount_in:8][amount_out:8]
+            if data.len() >= 24 {
+                let max_in = u64::from_le_bytes(data[8..16].try_into().unwrap_or([0; 8]));
+                let amount_out = u64::from_le_bytes(data[16..24].try_into().unwrap_or([0; 8]));
+
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "SwapBaseOut",
+                    "description": "Swap tokens with fixed output amount",
+                    "max_amount_in": max_in,
+                    "amount_out": amount_out,
+                    "source_account": accounts.first().unwrap_or(&"unknown".to_string()),
+                    "destination_account": accounts.get(1).unwrap_or(&"unknown".to_string()),
+                })))
+            } else {
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "SwapBaseOut",
+                    "note": "Incomplete data"
+                })))
+            }
+        }
+        d if *d == raydium::ADD_LIQUIDITY => Ok(ParsedInstructionData::Decoded(json!({
+            "type": "AddLiquidity",
+            "description": "Add liquidity to a pool",
+        }))),
+        d if *d == raydium::REMOVE_LIQUIDITY => Ok(ParsedInstructionData::Decoded(json!({
+            "type": "RemoveLiquidity",
+            "description": "Remove liquidity from a pool",
+        }))),
+        _ => {
+            let disc_hex = hex::encode(discriminator);
+            Ok(ParsedInstructionData::Decoded(json!({
+                "type": "UnknownRaydiumInstruction",
+                "discriminator": disc_hex,
+            })))
+        }
     }
 }
 
@@ -617,19 +679,115 @@ fn parse_jupiter_instruction(data: &[u8], _accounts: &[String]) -> Result<Parsed
     }
 }
 
-/// Orca instruction parsing (placeholder for future expansion)
-fn parse_orca_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
-    if data.len() >= 8 {
-        let discriminator = hex::encode(&data[..8.min(data.len())]);
-        Ok(ParsedInstructionData::Decoded(json!({
-            "type": "OrcaInstruction",
-            "discriminator": discriminator,
-            "note": "Full instruction parsing not yet implemented"
-        })))
-    } else {
-        Ok(ParsedInstructionData::Raw(
-            "Orca instruction data".to_string(),
-        ))
+/// Orca Whirlpool discriminators (Anchor: sha256("global:<instruction_name>")[0..8])
+mod orca_whirlpool {
+    pub const SWAP: [u8; 8] = [0xf8, 0xc6, 0x9e, 0x91, 0xe1, 0x75, 0x87, 0xc8];
+    pub const INCREASE_LIQUIDITY: [u8; 8] = [0x2e, 0x9c, 0xf3, 0x76, 0x0d, 0xcd, 0xfb, 0xb2];
+    pub const DECREASE_LIQUIDITY: [u8; 8] = [0xa0, 0x26, 0xd0, 0x6f, 0x68, 0x5b, 0x2c, 0x01];
+    pub const INITIALIZE_POOL: [u8; 8] = [0x5f, 0xb4, 0x0a, 0xac, 0x54, 0xae, 0xe8, 0x28];
+}
+
+/// Parse Orca Whirlpool instruction
+fn parse_orca_instruction(data: &[u8], accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
+    if data.len() < 8 {
+        return Ok(ParsedInstructionData::Raw(
+            "Orca Whirlpool instruction data too short".to_string(),
+        ));
+    }
+
+    let discriminator = &data[0..8];
+
+    match discriminator {
+        d if *d == orca_whirlpool::SWAP => {
+            // Whirlpool swap: [discriminator:8][amount:8][other_threshold:8][sqrt_price_limit:16][amount_specified_is_input:1][a_to_b:1]
+            if data.len() >= 42 {
+                let amount = u64::from_le_bytes(data[8..16].try_into().unwrap_or([0; 8]));
+                let other_threshold = u64::from_le_bytes(data[16..24].try_into().unwrap_or([0; 8]));
+                let amount_specified_is_input = data.get(40).copied().unwrap_or(0) == 1;
+                let a_to_b = data.get(41).copied().unwrap_or(0) == 1;
+
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "Swap",
+                    "description": "Swap tokens in Whirlpool",
+                    "amount": amount,
+                    "other_amount_threshold": other_threshold,
+                    "amount_specified_is_input": amount_specified_is_input,
+                    "a_to_b": a_to_b,
+                    "whirlpool": accounts.first().unwrap_or(&"unknown".to_string()),
+                    "token_owner_account_a": accounts.get(1).unwrap_or(&"unknown".to_string()),
+                    "token_owner_account_b": accounts.get(2).unwrap_or(&"unknown".to_string()),
+                })))
+            } else {
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "Swap",
+                    "description": "Swap tokens in Whirlpool",
+                    "note": "Incomplete data"
+                })))
+            }
+        }
+        d if *d == orca_whirlpool::INCREASE_LIQUIDITY => {
+            // increase_liquidity: [discriminator:8][liquidity_amount:16][token_max_a:8][token_max_b:8]
+            if data.len() >= 40 {
+                let liquidity_amount = u128::from_le_bytes({
+                    let mut arr = [0u8; 16];
+                    arr.copy_from_slice(&data[8..24]);
+                    arr
+                });
+                let token_max_a = u64::from_le_bytes(data[24..32].try_into().unwrap_or([0; 8]));
+                let token_max_b = u64::from_le_bytes(data[32..40].try_into().unwrap_or([0; 8]));
+
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "IncreaseLiquidity",
+                    "description": "Add liquidity to a Whirlpool position",
+                    "liquidity_amount": liquidity_amount.to_string(),
+                    "token_max_a": token_max_a,
+                    "token_max_b": token_max_b,
+                })))
+            } else {
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "IncreaseLiquidity",
+                    "description": "Add liquidity to a Whirlpool position",
+                    "note": "Incomplete data"
+                })))
+            }
+        }
+        d if *d == orca_whirlpool::DECREASE_LIQUIDITY => {
+            // decrease_liquidity: [discriminator:8][liquidity_amount:16][token_min_a:8][token_min_b:8]
+            if data.len() >= 40 {
+                let liquidity_amount = u128::from_le_bytes({
+                    let mut arr = [0u8; 16];
+                    arr.copy_from_slice(&data[8..24]);
+                    arr
+                });
+                let token_min_a = u64::from_le_bytes(data[24..32].try_into().unwrap_or([0; 8]));
+                let token_min_b = u64::from_le_bytes(data[32..40].try_into().unwrap_or([0; 8]));
+
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "DecreaseLiquidity",
+                    "description": "Remove liquidity from a Whirlpool position",
+                    "liquidity_amount": liquidity_amount.to_string(),
+                    "token_min_a": token_min_a,
+                    "token_min_b": token_min_b,
+                })))
+            } else {
+                Ok(ParsedInstructionData::Decoded(json!({
+                    "type": "DecreaseLiquidity",
+                    "description": "Remove liquidity from a Whirlpool position",
+                    "note": "Incomplete data"
+                })))
+            }
+        }
+        d if *d == orca_whirlpool::INITIALIZE_POOL => Ok(ParsedInstructionData::Decoded(json!({
+            "type": "InitializePool",
+            "description": "Initialize a new Whirlpool",
+        }))),
+        _ => {
+            let disc_hex = hex::encode(discriminator);
+            Ok(ParsedInstructionData::Decoded(json!({
+                "type": "UnknownOrcaInstruction",
+                "discriminator": disc_hex,
+            })))
+        }
     }
 }
 
@@ -799,6 +957,36 @@ pub fn interpret_error(program_id: &str, error_code: u32) -> String {
             28 => "Invalid extension for operation".to_string(),
             29 => "Conflicting extensions".to_string(),
             _ => format!("Unknown Token error code: {}", error_code),
+        }
+    } else if program_id == "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" {
+        // Raydium AMM errors (top 10 most common)
+        match error_code {
+            0 => "Invalid pool state".to_string(),
+            1 => "Insufficient input amount".to_string(),
+            2 => "Slippage tolerance exceeded".to_string(),
+            3 => "Insufficient output amount".to_string(),
+            4 => "Invalid token program".to_string(),
+            5 => "Pool token mint mismatch".to_string(),
+            6 => "Invalid fee account".to_string(),
+            7 => "Math overflow".to_string(),
+            8 => "Invalid authority".to_string(),
+            9 => "Invalid account owner".to_string(),
+            _ => format!("Unknown Raydium error code: {}", error_code),
+        }
+    } else if program_id == "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc" {
+        // Orca Whirlpool errors (top 10 most common)
+        match error_code {
+            0 => "Invalid whirlpool".to_string(),
+            1 => "Invalid tick array".to_string(),
+            2 => "Invalid position".to_string(),
+            3 => "Invalid token mint".to_string(),
+            4 => "Sqrt price out of range".to_string(),
+            5 => "Liquidity zero".to_string(),
+            6 => "Tick array sequence invalid".to_string(),
+            7 => "Invalid tick index".to_string(),
+            8 => "Fee rate exceeds max".to_string(),
+            9 => "Protocol fee rate exceeds max".to_string(),
+            _ => format!("Unknown Orca Whirlpool error code: {}", error_code),
         }
     } else {
         format!("Error code {} for program {}", error_code, program_id)

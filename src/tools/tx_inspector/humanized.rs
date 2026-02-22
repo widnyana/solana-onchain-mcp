@@ -8,7 +8,7 @@ use rust_mcp_sdk::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::{decode_instruction, format_instruction_error, get_program_name};
+use super::{decode_instruction, format_instruction_error, format_instruction_error_with_program, get_program_name};
 use crate::rpc::SolanaRpcClient;
 
 #[mcp_tool(
@@ -207,12 +207,8 @@ fn create_humanized_analysis(tx: &serde_json::Value) -> TransactionAnalysis {
     let slot = tx.get("slot").and_then(|s| s.as_u64());
     let block_time = tx.get("blockTime").and_then(|b| b.as_i64());
 
-    let (success, error) = tx
-        .get("meta")
-        .and_then(|m| m.get("err"))
-        .filter(|err| !err.is_null())
-        .map(|err| (false, Some(format_instruction_error(err))))
-        .unwrap_or((true, None));
+    // Get raw error value first
+    let raw_error = tx.get("meta").and_then(|m| m.get("err")).filter(|err| !err.is_null());
 
     let fee = tx
         .get("meta")
@@ -220,7 +216,22 @@ fn create_humanized_analysis(tx: &serde_json::Value) -> TransactionAnalysis {
         .and_then(|f| f.as_u64())
         .unwrap_or(0);
 
-    let (instructions, accounts, summary) = extract_instructions_and_accounts(tx, &error);
+    // Extract instructions and accounts
+    let (instructions, accounts, summary) = extract_instructions_and_accounts(tx, raw_error);
+
+    // Format error with program context if available
+    let (success, error) = if let Some(err) = raw_error {
+        // Try to get the failing instruction's program for better error interpretation
+        let failing_program = get_failing_instruction_program(err, &instructions);
+        let formatted = if let Some(program_id) = failing_program {
+            format_instruction_error_with_program(err, &program_id)
+        } else {
+            format_instruction_error(err)
+        };
+        (false, Some(formatted))
+    } else {
+        (true, None)
+    };
 
     TransactionAnalysis {
         signature,
@@ -234,9 +245,23 @@ fn create_humanized_analysis(tx: &serde_json::Value) -> TransactionAnalysis {
     }
 }
 
+/// Get the program ID of the failing instruction from an InstructionError
+fn get_failing_instruction_program(err: &serde_json::Value, instructions: &[InstructionAnalysis]) -> Option<String> {
+    if let Some(obj) = err.as_object()
+        && let Some(instr_err) = obj.get("InstructionError")
+        && let Some(arr) = instr_err.as_array()
+        && !arr.is_empty()
+        && let Some(index) = arr[0].as_u64()
+    {
+        let idx = index as usize;
+        return instructions.get(idx).map(|i| i.program.clone());
+    }
+    None
+}
+
 fn extract_instructions_and_accounts(
     tx: &serde_json::Value,
-    error: &Option<String>,
+    _raw_error: Option<&serde_json::Value>,
 ) -> (Vec<InstructionAnalysis>, Vec<AccountAnalysis>, String) {
     let mut instructions = Vec::new();
     let mut accounts = Vec::new();
@@ -378,8 +403,8 @@ fn extract_instructions_and_accounts(
         }
     }
 
-    // Generate summary
-    let summary = generate_summary(&instructions, error);
+    // Generate summary (error details are in StatusInfo)
+    let summary = generate_summary(&instructions);
 
     (instructions, accounts, summary)
 }
@@ -431,13 +456,9 @@ fn generate_explanation(program_name: &Option<String>, instruction_type: &Option
     Some(action.to_string())
 }
 
-fn generate_summary(instructions: &[InstructionAnalysis], error: &Option<String>) -> String {
-    let success = error.is_none();
-    let status = if success { "succeeded" } else { "failed" };
-
+fn generate_summary(instructions: &[InstructionAnalysis]) -> String {
     if instructions.is_empty() {
-        let error_part = error.as_ref().map(|e| format!(": {}", e)).unwrap_or_default();
-        return format!("Empty transaction - {}{}", status, error_part);
+        return "Empty transaction".to_string();
     }
 
     // Get unique programs
@@ -452,20 +473,10 @@ fn generate_summary(instructions: &[InstructionAnalysis], error: &Option<String>
         .unwrap_or("execute instructions");
 
     // Build the summary
-    let mut summary = format!(
-        "Transaction {} to {}. {} instruction(s)",
-        status,
-        action,
-        instructions.len()
-    );
+    let mut summary = format!("{} instruction(s) to {}", instructions.len(), action);
 
     if !programs_str.is_empty() {
         summary.push_str(&format!(" via {}", programs_str.join(", ")));
-    }
-
-    // Add error details for failed transactions
-    if let Some(err) = error {
-        summary.push_str(&format!(". Error: {}", err));
     }
 
     summary
