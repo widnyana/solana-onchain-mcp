@@ -3,13 +3,12 @@
 //! This module provides a registry of known Solana programs with their
 //! instruction parsers and error interpretation.
 
+use std::{collections::HashMap, sync::Mutex};
+
 use lazy_static::lazy_static;
 use serde_json::json;
-use std::collections::HashMap;
-use std::sync::Mutex;
 
-use crate::tools::tx_inspector::core::ParsedInstructionData;
-use crate::tools::tx_inspector::ParseError;
+use crate::tools::tx_inspector::{ParseError, core::ParsedInstructionData};
 
 /// Program metadata and parsing capabilities
 #[derive(Debug, Clone)]
@@ -218,12 +217,11 @@ impl SystemInstruction {
 }
 
 /// Parse System Program instruction
-fn parse_system_instruction(
-    data: &[u8],
-    _accounts: &[String],
-) -> Result<ParsedInstructionData, ParseError> {
+fn parse_system_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
     if data.is_empty() {
-        return Ok(ParsedInstructionData::Raw("Empty instruction data".to_string()));
+        return Ok(ParsedInstructionData::Raw(
+            "Empty instruction data".to_string(),
+        ));
     }
 
     let instruction_type = SystemInstruction::from_u8(data[0]);
@@ -256,7 +254,9 @@ fn parse_system_instruction(
                     "owner": owner,
                 })))
             } else {
-                Ok(ParsedInstructionData::Raw("Assign (incomplete data)".to_string()))
+                Ok(ParsedInstructionData::Raw(
+                    "Assign (incomplete data)".to_string(),
+                ))
             }
         }
         Some(SystemInstruction::Transfer) => {
@@ -268,7 +268,9 @@ fn parse_system_instruction(
                     "sol": format!("{} SOL", lamports as f64 / 1_000_000_000.0),
                 })))
             } else {
-                Ok(ParsedInstructionData::Raw("Transfer (incomplete data)".to_string()))
+                Ok(ParsedInstructionData::Raw(
+                    "Transfer (incomplete data)".to_string(),
+                ))
             }
         }
         Some(SystemInstruction::CreateAccountWithSeed) => {
@@ -277,20 +279,14 @@ fn parse_system_instruction(
             let seed_len_pos = seed_start;
 
             if data.len() >= seed_len_pos + 4 {
-                let seed_len =
-                    u32::from_le_bytes(data[seed_len_pos..seed_len_pos + 4].try_into().unwrap())
-                        as usize;
+                let seed_len = u32::from_le_bytes(data[seed_len_pos..seed_len_pos + 4].try_into().unwrap()) as usize;
                 let seed_end = seed_len_pos + 4 + seed_len;
 
                 if data.len() >= seed_end + 32 + 8 {
-                    let seed =
-                        String::from_utf8_lossy(&data[seed_len_pos + 4..seed_end]).to_string();
-                    let lamports =
-                        u64::from_le_bytes(data[seed_end..seed_end + 8].try_into().unwrap());
-                    let space =
-                        u64::from_le_bytes(data[seed_end + 8..seed_end + 16].try_into().unwrap());
-                    let owner = solana_sdk::bs58::encode(&data[seed_end + 16..seed_end + 48])
-                        .into_string();
+                    let seed = String::from_utf8_lossy(&data[seed_len_pos + 4..seed_end]).to_string();
+                    let lamports = u64::from_le_bytes(data[seed_end..seed_end + 8].try_into().unwrap());
+                    let space = u64::from_le_bytes(data[seed_end + 8..seed_end + 16].try_into().unwrap());
+                    let owner = solana_sdk::bs58::encode(&data[seed_end + 16..seed_end + 48]).into_string();
 
                     Ok(ParsedInstructionData::Decoded(json!({
                         "type": "CreateAccountWithSeed",
@@ -310,7 +306,10 @@ fn parse_system_instruction(
                 ))
             }
         }
-        _ => Ok(ParsedInstructionData::Raw(format!("Unknown System instruction: {}", data[0]))),
+        _ => Ok(ParsedInstructionData::Raw(format!(
+            "Unknown System instruction: {}",
+            data[0]
+        ))),
     }
 }
 
@@ -403,12 +402,11 @@ impl TokenInstruction {
 }
 
 /// Parse Token Program instruction
-fn parse_token_instruction(
-    data: &[u8],
-    _accounts: &[String],
-) -> Result<ParsedInstructionData, ParseError> {
+fn parse_token_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
     if data.is_empty() {
-        return Ok(ParsedInstructionData::Raw("Empty instruction data".to_string()));
+        return Ok(ParsedInstructionData::Raw(
+            "Empty instruction data".to_string(),
+        ));
     }
 
     let instruction_type = TokenInstruction::from_u8(data[0]);
@@ -431,7 +429,9 @@ fn parse_token_instruction(
                     "freeze_authority": freeze_authority_option == 1,
                 })))
             } else {
-                Ok(ParsedInstructionData::Raw("InitializeMint (incomplete data)".to_string()))
+                Ok(ParsedInstructionData::Raw(
+                    "InitializeMint (incomplete data)".to_string(),
+                ))
             }
         }
         Some(TokenInstruction::InitializeAccount) | Some(TokenInstruction::InitializeAccount2) => {
@@ -447,7 +447,9 @@ fn parse_token_instruction(
                     "amount": amount,
                 })))
             } else {
-                Ok(ParsedInstructionData::Raw("Transfer (incomplete data)".to_string()))
+                Ok(ParsedInstructionData::Raw(
+                    "Transfer (incomplete data)".to_string(),
+                ))
             }
         }
         Some(TokenInstruction::MintTo) | Some(TokenInstruction::MintTo2) => {
@@ -458,7 +460,9 @@ fn parse_token_instruction(
                     "amount": amount,
                 })))
             } else {
-                Ok(ParsedInstructionData::Raw("MintTo (incomplete data)".to_string()))
+                Ok(ParsedInstructionData::Raw(
+                    "MintTo (incomplete data)".to_string(),
+                ))
             }
         }
         Some(TokenInstruction::Burn) | Some(TokenInstruction::Burn2) => {
@@ -469,14 +473,14 @@ fn parse_token_instruction(
                     "amount": amount,
                 })))
             } else {
-                Ok(ParsedInstructionData::Raw("Burn (incomplete data)".to_string()))
+                Ok(ParsedInstructionData::Raw(
+                    "Burn (incomplete data)".to_string(),
+                ))
             }
         }
-        Some(TokenInstruction::CloseAccount) => {
-            Ok(ParsedInstructionData::Decoded(json!({
-                "type": "CloseAccount",
-            })))
-        }
+        Some(TokenInstruction::CloseAccount) => Ok(ParsedInstructionData::Decoded(json!({
+            "type": "CloseAccount",
+        }))),
         Some(TokenInstruction::Approve) | Some(TokenInstruction::Approve2) => {
             if data.len() >= 1 + 8 {
                 let amount = u64::from_le_bytes(data[1..9].try_into().unwrap());
@@ -485,7 +489,9 @@ fn parse_token_instruction(
                     "amount": amount,
                 })))
             } else {
-                Ok(ParsedInstructionData::Raw("Approve (incomplete data)".to_string()))
+                Ok(ParsedInstructionData::Raw(
+                    "Approve (incomplete data)".to_string(),
+                ))
             }
         }
         Some(TokenInstruction::SetAuthority) => {
@@ -496,7 +502,9 @@ fn parse_token_instruction(
                     "authority_type": authority_type,
                 })))
             } else {
-                Ok(ParsedInstructionData::Raw("SetAuthority (incomplete data)".to_string()))
+                Ok(ParsedInstructionData::Raw(
+                    "SetAuthority (incomplete data)".to_string(),
+                ))
             }
         }
         Some(TokenInstruction::FreezeAccount) | Some(TokenInstruction::FreezeAccount2) => {
@@ -509,11 +517,9 @@ fn parse_token_instruction(
                 "type": "ThawAccount",
             })))
         }
-        Some(TokenInstruction::Revoke) | Some(TokenInstruction::Revoke2) => {
-            Ok(ParsedInstructionData::Decoded(json!({
-                "type": "Revoke",
-            })))
-        }
+        Some(TokenInstruction::Revoke) | Some(TokenInstruction::Revoke2) => Ok(ParsedInstructionData::Decoded(json!({
+            "type": "Revoke",
+        }))),
         Some(TokenInstruction::InitializeMultisig) | Some(TokenInstruction::InitializeMultisig2) => {
             if data.len() >= 2 {
                 let m = data[1];
@@ -522,15 +528,18 @@ fn parse_token_instruction(
                     "signers_required": m,
                 })))
             } else {
-                Ok(ParsedInstructionData::Raw("InitializeMultisig (incomplete data)".to_string()))
+                Ok(ParsedInstructionData::Raw(
+                    "InitializeMultisig (incomplete data)".to_string(),
+                ))
             }
         }
-        Some(TokenInstruction::SyncNative) => {
-            Ok(ParsedInstructionData::Decoded(json!({
-                "type": "SyncNative",
-            })))
-        }
-        _ => Ok(ParsedInstructionData::Raw(format!("Unknown Token instruction: {}", data[0]))),
+        Some(TokenInstruction::SyncNative) => Ok(ParsedInstructionData::Decoded(json!({
+            "type": "SyncNative",
+        }))),
+        _ => Ok(ParsedInstructionData::Raw(format!(
+            "Unknown Token instruction: {}",
+            data[0]
+        ))),
     }
 }
 
@@ -555,41 +564,34 @@ impl AtaInstruction {
 }
 
 /// Parse Associated Token Account instruction
-fn parse_ata_instruction(
-    data: &[u8],
-    _accounts: &[String],
-) -> Result<ParsedInstructionData, ParseError> {
+fn parse_ata_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
     if data.is_empty() {
-        return Ok(ParsedInstructionData::Raw("Empty instruction data".to_string()));
+        return Ok(ParsedInstructionData::Raw(
+            "Empty instruction data".to_string(),
+        ));
     }
 
     let instruction_type = AtaInstruction::from_u8(data[0]);
 
     match instruction_type {
-        Some(AtaInstruction::Create) => {
-            Ok(ParsedInstructionData::Decoded(json!({
-                "type": "CreateAssociatedTokenAccount",
-            })))
-        }
-        Some(AtaInstruction::CreateIdempotent) => {
-            Ok(ParsedInstructionData::Decoded(json!({
-                "type": "CreateAssociatedTokenAccountIdempotent",
-            })))
-        }
-        Some(AtaInstruction::RecoverNested) => {
-            Ok(ParsedInstructionData::Decoded(json!({
-                "type": "RecoverNested",
-            })))
-        }
-        _ => Ok(ParsedInstructionData::Raw(format!("Unknown ATA instruction: {}", data[0]))),
+        Some(AtaInstruction::Create) => Ok(ParsedInstructionData::Decoded(json!({
+            "type": "CreateAssociatedTokenAccount",
+        }))),
+        Some(AtaInstruction::CreateIdempotent) => Ok(ParsedInstructionData::Decoded(json!({
+            "type": "CreateAssociatedTokenAccountIdempotent",
+        }))),
+        Some(AtaInstruction::RecoverNested) => Ok(ParsedInstructionData::Decoded(json!({
+            "type": "RecoverNested",
+        }))),
+        _ => Ok(ParsedInstructionData::Raw(format!(
+            "Unknown ATA instruction: {}",
+            data[0]
+        ))),
     }
 }
 
 /// Raydium instruction parsing (placeholder for future expansion)
-fn parse_raydium_instruction(
-    data: &[u8],
-    _accounts: &[String],
-) -> Result<ParsedInstructionData, ParseError> {
+fn parse_raydium_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
     if data.len() >= 8 {
         // Raydium instructions typically start with a discriminator
         let discriminator = hex::encode(&data[..8.min(data.len())]);
@@ -599,15 +601,14 @@ fn parse_raydium_instruction(
             "note": "Full instruction parsing not yet implemented"
         })))
     } else {
-        Ok(ParsedInstructionData::Raw("Raydium instruction data".to_string()))
+        Ok(ParsedInstructionData::Raw(
+            "Raydium instruction data".to_string(),
+        ))
     }
 }
 
 /// Jupiter instruction parsing (placeholder for future expansion)
-fn parse_jupiter_instruction(
-    data: &[u8],
-    _accounts: &[String],
-) -> Result<ParsedInstructionData, ParseError> {
+fn parse_jupiter_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
     if data.len() >= 1 {
         Ok(ParsedInstructionData::Decoded(json!({
             "type": "JupiterInstruction",
@@ -615,15 +616,14 @@ fn parse_jupiter_instruction(
             "note": "Full instruction parsing not yet implemented"
         })))
     } else {
-        Ok(ParsedInstructionData::Raw("Jupiter instruction data".to_string()))
+        Ok(ParsedInstructionData::Raw(
+            "Jupiter instruction data".to_string(),
+        ))
     }
 }
 
 /// Orca instruction parsing (placeholder for future expansion)
-fn parse_orca_instruction(
-    data: &[u8],
-    _accounts: &[String],
-) -> Result<ParsedInstructionData, ParseError> {
+fn parse_orca_instruction(data: &[u8], _accounts: &[String]) -> Result<ParsedInstructionData, ParseError> {
     if data.len() >= 8 {
         let discriminator = hex::encode(&data[..8.min(data.len())]);
         Ok(ParsedInstructionData::Decoded(json!({
@@ -632,7 +632,9 @@ fn parse_orca_instruction(
             "note": "Full instruction parsing not yet implemented"
         })))
     } else {
-        Ok(ParsedInstructionData::Raw("Orca instruction data".to_string()))
+        Ok(ParsedInstructionData::Raw(
+            "Orca instruction data".to_string(),
+        ))
     }
 }
 

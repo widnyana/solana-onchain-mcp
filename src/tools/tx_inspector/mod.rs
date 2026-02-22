@@ -7,23 +7,22 @@ mod humanized;
 mod programs;
 mod raw;
 
-pub use humanized::InspectTransactionHumanizedTool;
-pub use raw::InspectTransactionRawTool;
-
 // Public exports for enhanced transaction parsing (future use)
 #[allow(unused_imports, dead_code)]
 pub use core::{
-    AccountRef, AccountRole, BalanceChange, ParseConfig, ParsedInstruction,
-    ParsedInstructionData, ParseError, ParsedTransaction, TokenBalanceChange, TransactionSummary,
-};
-#[allow(unused_imports, dead_code)]
-pub use programs::{
-    decode_instruction, identify_program, interpret_error, ProgramCategory, ProgramInfo,
-    ProgramRegistry,
+    AccountRef, AccountRole, BalanceChange, ParseConfig, ParseError, ParsedInstruction, ParsedInstructionData,
+    ParsedTransaction, TokenBalanceChange, TransactionSummary,
 };
 
+pub use humanized::InspectTransactionHumanizedTool;
+#[allow(unused_imports, dead_code)]
+pub use programs::{
+    ProgramCategory, ProgramInfo, ProgramRegistry, decode_instruction, identify_program, interpret_error,
+};
+pub use raw::InspectTransactionRawTool;
+
 /// Lookup table for well-known Solana program names
-pub(crate) fn get_program_name(pubkey: &str) -> Option<&'static str> {
+pub fn get_program_name(pubkey: &str) -> Option<&'static str> {
     identify_program(pubkey).map(|info| {
         // The ProgramInfo is static, so we can return a static str
         let name: &str = &info.name;
@@ -33,7 +32,7 @@ pub(crate) fn get_program_name(pubkey: &str) -> Option<&'static str> {
 }
 
 /// Format an InstructionError into a human-readable string
-pub(crate) fn format_instruction_error(err: &serde_json::Value) -> String {
+pub fn format_instruction_error(err: &serde_json::Value) -> String {
     if let Some(obj) = err.as_object() {
         if let Some(instr_err) = obj.get("InstructionError") {
             if let Some(arr) = instr_err.as_array() {
