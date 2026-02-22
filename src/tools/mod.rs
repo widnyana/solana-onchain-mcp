@@ -16,7 +16,7 @@ mod get_transaction;
 mod simulate_transaction;
 mod transfer_sol;
 mod transfer_token;
-mod tx_inspector;
+pub mod tx_inspector;
 
 pub use create_ata::*;
 pub use get_account_info::*;
@@ -31,7 +31,10 @@ pub use get_transaction::*;
 pub use simulate_transaction::*;
 pub use transfer_sol::*;
 pub use transfer_token::*;
-pub use tx_inspector::{InspectTransactionHumanizedTool, InspectTransactionRawTool};
+pub use tx_inspector::{
+    InspectTransactionHumanizedTool, InspectTransactionRawTool, ParsedInstructionData, ProgramCategory,
+    decode_instruction, format_instruction_error, get_program_name, identify_program, interpret_error,
+};
 
 tool_box!(
     SolanaTools,

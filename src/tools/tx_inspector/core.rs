@@ -17,10 +17,7 @@ pub struct ParseConfig {
 
 impl Default for ParseConfig {
     fn default() -> Self {
-        Self {
-            humanize: true,
-            include_summary: true,
-        }
+        Self { humanize: true, include_summary: true }
     }
 }
 
