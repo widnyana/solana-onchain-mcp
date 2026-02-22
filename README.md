@@ -3,36 +3,26 @@
 [![Crates.io](https://img.shields.io/crates/v/solana-onchain-mcp)](https://crates.io/crates/solana-onchain-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-MCP server for Solana blockchain operations with AI assistants.
+MCP server for Solana blockchain operations.
 
-## Features
-
-- Query SOL balances and transaction details
-- Get current slot/block height
-- Transfer SOL and SPL tokens
-- Multi-network support (mainnet, devnet, testnet, custom)
-- Security-hardened with mainnet guard
-
-## Installation
+## Install
 
 ```bash
 cargo install --git https://github.com/widnyana/solana-onchain-mcp
 ```
 
-## Quick Start
+## Setup
 
 ### Claude Code
 
-Create `.mcp.json` in your project:
+`.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "solana": {
       "command": "solana-onchain-mcp",
-      "env": {
-        "SOLANA_NETWORK": "devnet"
-      }
+      "env": { "SOLANA_NETWORK": "devnet" }
     }
   }
 }
@@ -40,16 +30,14 @@ Create `.mcp.json` in your project:
 
 ### Cursor
 
-Create `.cursor/mcp.json`:
+`.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "solana": {
       "command": "solana-onchain-mcp",
-      "env": {
-        "SOLANA_NETWORK": "devnet"
-      }
+      "env": { "SOLANA_NETWORK": "devnet" }
     }
   }
 }
@@ -57,24 +45,20 @@ Create `.cursor/mcp.json`:
 
 ### VS Code
 
-Add to `settings.json` (requires [MCP extension](https://marketplace.visualstudio.com/items?itemName=anthropic.mcp)):
+`settings.json` (requires [MCP extension](https://marketplace.visualstudio.com/items?itemName=anthropic.mcp)):
 
 ```json
 {
   "mcp.servers": {
     "solana": {
       "command": "solana-onchain-mcp",
-      "env": {
-        "SOLANA_NETWORK": "devnet"
-      }
+      "env": { "SOLANA_NETWORK": "devnet" }
     }
   }
 }
 ```
 
 ### With Keypair (for transfers)
-
-To enable transfer operations, set the keypair path:
 
 ```json
 {
@@ -90,18 +74,41 @@ To enable transfer operations, set the keypair path:
 }
 ```
 
-## Documentation
+## Tools (15)
 
-See [USAGE.md](USAGE.md) for:
-- Configuration options (environment variables, CLI flags)
-- Tool reference (parameters, types)
-- Commitment levels
-- Security guide
+### Read (no keypair)
+
+| Tool | Description |
+|------|-------------|
+| `get_balance` | SOL balance for address |
+| `get_account_info` | Account data and metadata |
+| `get_multiple_accounts` | Batch fetch up to 100 accounts |
+| `get_token_accounts_by_owner` | SPL token accounts for wallet |
+| `get_program_accounts` | Accounts owned by program |
+| `get_transaction` | Transaction by signature |
+| `get_signatures_for_address` | Transaction history for address |
+| `get_signature_status` | Transaction confirmation status |
+| `get_slot` | Current slot/block height |
+| `simulate_transaction` | Test transaction without signing |
+| `inspect_transaction_raw` | Raw transaction with program names |
+| `inspect_transaction_humanized` | Human-readable transaction summary |
+
+### Write (requires keypair)
+
+| Tool | Description |
+|------|-------------|
+| `transfer_sol` | Transfer SOL |
+| `transfer_token` | Transfer SPL tokens |
+| `create_associated_token_account` | Create token account |
+
+## Docs
+
+See [USAGE.md](USAGE.md) for configuration, parameters, and security.
 
 ## Requirements
 
 - Rust 1.85+ (edition 2024)
-- Solana RPC access (public or custom endpoint)
+- Solana RPC access
 
 ## License
 
