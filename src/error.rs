@@ -14,6 +14,9 @@ pub enum SolanaMcpError {
     #[error("Invalid RPC endpoint URL: {0}")]
     InvalidEndpoint(String),
 
+    #[error("Invalid encoding '{0}': must be base64, base58, or jsonParsed")]
+    InvalidEncoding(String),
+
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
 
