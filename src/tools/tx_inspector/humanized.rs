@@ -317,7 +317,7 @@ fn extract_instructions_and_accounts(
                         });
 
                     // Get program name, or show "Unknown Program (truncated pubkey)" for unknown programs
-                    let program_name = get_program_name(&program_id).map(|s| s.to_string()).or_else(|| {
+                    let program_name = get_program_name(&program_id).or_else(|| {
                         // Truncate pubkey for display
                         let truncated = if program_id.len() > 12 {
                             format!("Unknown Program ({}...)", &program_id[..12])
