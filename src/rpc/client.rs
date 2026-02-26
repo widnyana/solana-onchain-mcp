@@ -31,6 +31,7 @@ pub struct SolanaRpcClient {
 
 impl SolanaRpcClient {
     const MAX_MULTIPLE_ACCOUNTS: usize = 100;
+    const MAX_TRANSACTION_INPUT_SIZE: usize = 4096;
 
     pub fn new(config: &Config) -> Self {
         let client = RpcClient::new_with_timeout_and_commitment(
@@ -227,8 +228,9 @@ impl SolanaRpcClient {
         owner_address: &str,
         mint: Option<&str>,
         program_id: Option<&str>,
-        _commitment: Option<&str>,
+        commitment: Option<&str>,
     ) -> Result<serde_json::Value> {
+        let _commitment_config = Self::parse_commitment(commitment); // Parsed but not yet used - reserved for future implementation
         let owner = owner_address.parse_pubkey()?;
 
         let token_account_filter = match (mint, program_id) {
@@ -361,6 +363,12 @@ impl SolanaRpcClient {
         replace_recent_blockhash: bool,
         commitment: Option<&str>,
     ) -> Result<serde_json::Value> {
+        if transaction.len() > Self::MAX_TRANSACTION_INPUT_SIZE {
+            return Err(SolanaMcpError::RpcError(
+                "Transaction input too large".to_string(),
+            ));
+        }
+
         let tx_bytes = match encoding.unwrap_or("base64") {
             "base58" => bs58::decode(transaction)
                 .into_vec()
