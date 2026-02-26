@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version from tag
+        id: extract
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      - name: Verify version matches Cargo.toml
+        run: |
+          CARGO_VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d '"' -f2)
+          TAG_VERSION="${{ steps.extract.outputs.version }}"
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "Version mismatch: Cargo.toml has $CARGO_VERSION, tag has $TAG_VERSION"
+            exit 1
+          fi
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run all tests
+        run: |
+          cargo test --verbose
+          cargo test --verbose -- --ignored
+        env:
+          SOLANA_NETWORK: devnet
+
+  build:
+    needs: [verify, test]
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            use_cross: false
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+            use_cross: true
+          - target: x86_64-apple-darwin
+            runner: macos-latest
+            use_cross: false
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+            use_cross: false
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.use_cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build release
+        run: |
+          if [ "${{ matrix.use_cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+
+      - name: Strip binary
+        if: "!matrix.use_cross"
+        run: strip target/${{ matrix.target }}/release/solana-onchain-mcp
+
+      - name: Rename binary
+        run: |
+          BIN_NAME="solana-onchain-mcp-${{ matrix.target }}"
+          mv target/${{ matrix.target }}/release/solana-onchain-mcp "$BIN_NAME"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: solana-onchain-mcp-${{ matrix.target }}
+
+  publish-crates:
+    needs: [verify, test]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CRATESIO_TOKEN }}
+
+  github-release:
+    needs: [build, publish-crates]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          merge-multiple: false
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find binaries -type f -exec cp {} release-assets/ \;
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(needs.verify.outputs.version, '-') }}
