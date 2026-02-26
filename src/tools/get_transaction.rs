@@ -22,9 +22,10 @@ pub struct GetTransactionTool {
 }
 
 impl GetTransactionTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         let tx = client
             .get_transaction(&self.signature, self.commitment.as_deref())
+            .await
             .map_err(CallToolError::new)?;
 
         Ok(CallToolResult::text_content(vec![

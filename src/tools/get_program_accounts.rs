@@ -46,7 +46,7 @@ pub struct GetProgramAccountsTool {
 }
 
 impl GetProgramAccountsTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         let accounts = client
             .get_program_accounts(
                 &self.program_id,
@@ -55,6 +55,7 @@ impl GetProgramAccountsTool {
                 self.commitment.as_deref(),
                 self.encoding.as_deref(),
             )
+            .await
             .map_err(CallToolError::new)?;
 
         Ok(CallToolResult::text_content(vec![

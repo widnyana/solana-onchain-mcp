@@ -29,13 +29,14 @@ pub struct GetAccountInfoTool {
 }
 
 impl GetAccountInfoTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         let account = client
             .get_account_info(
                 &self.address,
                 self.encoding.as_deref(),
                 self.commitment.as_deref(),
             )
+            .await
             .map_err(CallToolError::new)?;
 
         match account {

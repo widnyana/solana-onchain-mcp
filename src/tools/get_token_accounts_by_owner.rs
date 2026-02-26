@@ -33,7 +33,7 @@ pub struct GetTokenAccountsByOwnerTool {
 }
 
 impl GetTokenAccountsByOwnerTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         // Must specify exactly one of mint or program_id
         match (&self.mint, &self.program_id) {
             (None, None) => {
@@ -56,6 +56,7 @@ impl GetTokenAccountsByOwnerTool {
                 self.program_id.as_deref(),
                 self.commitment.as_deref(),
             )
+            .await
             .map_err(CallToolError::new)?;
 
         Ok(CallToolResult::text_content(vec![

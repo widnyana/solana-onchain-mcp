@@ -100,96 +100,128 @@ impl SolanaRpcClient {
         })
     }
 
-    pub fn get_balance(&self, address: &str, commitment: Option<&str>) -> Result<u64> {
-        let pubkey = address.parse_pubkey()?;
-
-        let commitment_config = Self::parse_commitment(commitment);
-        let response = self
-            .client
-            .get_balance_with_commitment(&pubkey, commitment_config)
-            .map_err(SolanaMcpError::from)?;
-
-        Ok(response.value)
+    pub async fn get_balance(&self, address: &str, commitment: Option<&str>) -> Result<u64> {
+        let client = self.clone();
+        let address = address.to_string();
+        let commitment = commitment.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let pubkey = address.parse_pubkey()?;
+            let commitment_config = Self::parse_commitment(commitment.as_deref());
+            client
+                .client
+                .get_balance_with_commitment(&pubkey, commitment_config)
+                .map_err(SolanaMcpError::from)
+                .map(|r| r.value)
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
-    pub fn get_slot(&self, commitment: Option<&str>) -> Result<u64> {
-        let commitment_config = Self::parse_commitment(commitment);
-        let slot = self
-            .client
-            .get_slot_with_commitment(commitment_config)
-            .map_err(SolanaMcpError::from)?;
-
-        Ok(slot)
+    pub async fn get_slot(&self, commitment: Option<&str>) -> Result<u64> {
+        let client = self.clone();
+        let commitment = commitment.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let commitment_config = Self::parse_commitment(commitment.as_deref());
+            client
+                .client
+                .get_slot_with_commitment(commitment_config)
+                .map_err(SolanaMcpError::from)
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
-    pub fn get_transaction(&self, signature: &str, commitment: Option<&str>) -> Result<serde_json::Value> {
-        let sig = signature
-            .parse::<Signature>()
-            .map_err(|e| SolanaMcpError::InvalidSignature(e.to_string()))?;
+    pub async fn get_transaction(&self, signature: &str, commitment: Option<&str>) -> Result<serde_json::Value> {
+        let client = self.clone();
+        let signature = signature.to_string();
+        let commitment = commitment.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let sig = signature
+                .parse::<Signature>()
+                .map_err(|e| SolanaMcpError::InvalidSignature(e.to_string()))?;
 
-        let commitment_config = Self::parse_commitment(commitment);
-        let config = RpcTransactionConfig {
-            encoding: Some(UiTransactionEncoding::JsonParsed),
-            commitment: Some(commitment_config),
-            max_supported_transaction_version: Some(0),
-        };
+            let commitment_config = Self::parse_commitment(commitment.as_deref());
+            let config = RpcTransactionConfig {
+                encoding: Some(UiTransactionEncoding::JsonParsed),
+                commitment: Some(commitment_config),
+                max_supported_transaction_version: Some(0),
+            };
 
-        let tx = self
-            .client
-            .get_transaction_with_config(&sig, config)
-            .map_err(SolanaMcpError::from)?;
+            let tx = client
+                .client
+                .get_transaction_with_config(&sig, config)
+                .map_err(SolanaMcpError::from)?;
 
-        Ok(serde_json::to_value(tx).unwrap_or(serde_json::json!({
-            "error": "Failed to serialize transaction"
-        })))
+            Ok(serde_json::to_value(tx).unwrap_or(serde_json::json!({
+                "error": "Failed to serialize transaction"
+            })))
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
     // ==================== NEW READ TOOLS ====================
 
     /// Get transaction with specific encoding, returning the full typed response
-    pub fn get_transaction_with_config(
+    pub async fn get_transaction_with_config(
         &self,
         signature: &Signature,
         commitment: Option<&str>,
         encoding: UiTransactionEncoding,
     ) -> Result<EncodedConfirmedTransactionWithStatusMeta> {
-        let commitment_config = Self::parse_commitment(commitment);
-        let config = RpcTransactionConfig {
-            encoding: Some(encoding),
-            commitment: Some(commitment_config),
-            max_supported_transaction_version: Some(0),
-        };
+        let client = self.clone();
+        let signature = *signature;
+        let commitment = commitment.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let commitment_config = Self::parse_commitment(commitment.as_deref());
+            let config = RpcTransactionConfig {
+                encoding: Some(encoding),
+                commitment: Some(commitment_config),
+                max_supported_transaction_version: Some(0),
+            };
 
-        self.client
-            .get_transaction_with_config(signature, config)
-            .map_err(SolanaMcpError::from)
+            client
+                .client
+                .get_transaction_with_config(&signature, config)
+                .map_err(SolanaMcpError::from)
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
-    pub fn get_account_info(
+    pub async fn get_account_info(
         &self,
         address: &str,
         encoding: Option<&str>,
         commitment: Option<&str>,
     ) -> Result<Option<serde_json::Value>> {
-        let pubkey = address.parse_pubkey()?;
+        let client = self.clone();
+        let address = address.to_string();
+        let encoding = encoding.map(|s| s.to_string());
+        let commitment = commitment.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let pubkey = address.parse_pubkey()?;
 
-        let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
-        let config = RpcAccountInfoConfig {
-            encoding: Some(enc),
-            commitment: Some(Self::parse_commitment(commitment)),
-            data_slice: None,
-            min_context_slot: None,
-        };
+            let enc = Self::parse_encoding(encoding.as_deref().unwrap_or("base64"))?;
+            let config = RpcAccountInfoConfig {
+                encoding: Some(enc),
+                commitment: Some(Self::parse_commitment(commitment.as_deref())),
+                data_slice: None,
+                min_context_slot: None,
+            };
 
-        let response = self
-            .client
-            .get_account_with_config(&pubkey, config)
-            .map_err(SolanaMcpError::from)?;
+            let response = client
+                .client
+                .get_account_with_config(&pubkey, config)
+                .map_err(SolanaMcpError::from)?;
 
-        Ok(response.value.map(|acc| Self::serialize_account(acc, enc)))
+            Ok(response.value.map(|acc| Self::serialize_account(acc, enc)))
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
-    pub fn get_multiple_accounts(
+    pub async fn get_multiple_accounts(
         &self,
         addresses: &[String],
         encoding: Option<&str>,
@@ -202,66 +234,83 @@ impl SolanaRpcClient {
             )));
         }
 
-        let pubkeys: Vec<Pubkey> = addresses
-            .iter()
-            .map(|addr| addr.parse_pubkey())
-            .collect::<Result<Vec<_>>>()?;
+        let client = self.clone();
+        let addresses = addresses.to_vec();
+        let encoding = encoding.map(|s| s.to_string());
+        let commitment = commitment.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let pubkeys: Vec<Pubkey> = addresses
+                .iter()
+                .map(|addr| addr.parse_pubkey())
+                .collect::<Result<Vec<_>>>()?;
 
-        let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
-        let config = RpcAccountInfoConfig {
-            encoding: Some(enc),
-            commitment: Some(Self::parse_commitment(commitment)),
-            data_slice: None,
-            min_context_slot: None,
-        };
+            let enc = Self::parse_encoding(encoding.as_deref().unwrap_or("base64"))?;
+            let config = RpcAccountInfoConfig {
+                encoding: Some(enc),
+                commitment: Some(Self::parse_commitment(commitment.as_deref())),
+                data_slice: None,
+                min_context_slot: None,
+            };
 
-        let response = self
-            .client
-            .get_multiple_accounts_with_config(&pubkeys, config)
-            .map_err(SolanaMcpError::from)?;
+            let response = client
+                .client
+                .get_multiple_accounts_with_config(&pubkeys, config)
+                .map_err(SolanaMcpError::from)?;
 
-        Ok(response
-            .value
-            .into_iter()
-            .map(|opt_acc| opt_acc.map(|acc| Self::serialize_account(acc, enc)))
-            .collect())
+            Ok(response
+                .value
+                .into_iter()
+                .map(|opt_acc| opt_acc.map(|acc| Self::serialize_account(acc, enc)))
+                .collect())
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
-    pub fn get_token_accounts_by_owner(
+    pub async fn get_token_accounts_by_owner(
         &self,
         owner_address: &str,
         mint: Option<&str>,
         program_id: Option<&str>,
         commitment: Option<&str>,
     ) -> Result<serde_json::Value> {
-        let commitment_config = Self::parse_commitment(commitment);
-        let owner = owner_address.parse_pubkey()?;
+        let client = self.clone();
+        let owner_address = owner_address.to_string();
+        let mint = mint.map(|s| s.to_string());
+        let program_id = program_id.map(|s| s.to_string());
+        let commitment = commitment.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let commitment_config = Self::parse_commitment(commitment.as_deref());
+            let owner = owner_address.parse_pubkey()?;
 
-        let token_account_filter = match (mint, program_id) {
-            (Some(m), None) => TokenAccountsFilter::Mint(
-                m.parse()
-                    .map_err(|e| SolanaMcpError::InvalidAddress(format!("Invalid mint address: {}", e)))?,
-            ),
-            (None, Some(p)) => TokenAccountsFilter::ProgramId(
-                p.parse()
-                    .map_err(|e| SolanaMcpError::InvalidAddress(format!("Invalid program_id: {}", e)))?,
-            ),
-            _ => {
-                return Err(SolanaMcpError::RpcError(
-                    "Must specify mint or program_id".to_string(),
-                ));
-            }
-        };
+            let token_account_filter = match (mint, program_id) {
+                (Some(m), None) => TokenAccountsFilter::Mint(
+                    m.parse()
+                        .map_err(|e| SolanaMcpError::InvalidAddress(format!("Invalid mint address: {}", e)))?,
+                ),
+                (None, Some(p)) => TokenAccountsFilter::ProgramId(
+                    p.parse()
+                        .map_err(|e| SolanaMcpError::InvalidAddress(format!("Invalid program_id: {}", e)))?,
+                ),
+                _ => {
+                    return Err(SolanaMcpError::RpcError(
+                        "Must specify mint or program_id".to_string(),
+                    ));
+                }
+            };
 
-        let response = self
-            .client
-            .get_token_accounts_by_owner_with_commitment(&owner, token_account_filter, commitment_config)
-            .map_err(SolanaMcpError::from)?;
+            let response = client
+                .client
+                .get_token_accounts_by_owner_with_commitment(&owner, token_account_filter, commitment_config)
+                .map_err(SolanaMcpError::from)?;
 
-        Ok(serde_json::to_value(response).unwrap_or(serde_json::json!([])))
+            Ok(serde_json::to_value(response).unwrap_or(serde_json::json!([])))
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
-    pub fn get_signatures_for_address(
+    pub async fn get_signatures_for_address(
         &self,
         address: &str,
         limit: Option<usize>,
@@ -269,34 +318,45 @@ impl SolanaRpcClient {
         until: Option<&str>,
         commitment: Option<&str>,
     ) -> Result<serde_json::Value> {
-        let pubkey = address.parse_pubkey()?;
+        let client = self.clone();
+        let address = address.to_string();
+        let before = before.map(|s| s.to_string());
+        let until = until.map(|s| s.to_string());
+        let commitment = commitment.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let pubkey = address.parse_pubkey()?;
 
-        let before_sig = before
-            .map(|s| s.parse::<Signature>())
-            .transpose()
-            .map_err(|e| SolanaMcpError::InvalidSignature(e.to_string()))?;
+            let before_sig = before
+                .as_deref()
+                .map(|s| s.parse::<Signature>())
+                .transpose()
+                .map_err(|e| SolanaMcpError::InvalidSignature(e.to_string()))?;
 
-        let until_sig = until
-            .map(|s| s.parse::<Signature>())
-            .transpose()
-            .map_err(|e| SolanaMcpError::InvalidSignature(e.to_string()))?;
+            let until_sig = until
+                .as_deref()
+                .map(|s| s.parse::<Signature>())
+                .transpose()
+                .map_err(|e| SolanaMcpError::InvalidSignature(e.to_string()))?;
 
-        let config = GetConfirmedSignaturesForAddress2Config {
-            commitment: Some(Self::parse_commitment(commitment)),
-            limit,
-            before: before_sig,
-            until: until_sig,
-        };
+            let config = GetConfirmedSignaturesForAddress2Config {
+                commitment: Some(Self::parse_commitment(commitment.as_deref())),
+                limit,
+                before: before_sig,
+                until: until_sig,
+            };
 
-        let response = self
-            .client
-            .get_signatures_for_address_with_config(&pubkey, config)
-            .map_err(SolanaMcpError::from)?;
+            let response = client
+                .client
+                .get_signatures_for_address_with_config(&pubkey, config)
+                .map_err(SolanaMcpError::from)?;
 
-        Ok(serde_json::to_value(response).unwrap_or(serde_json::json!([])))
+            Ok(serde_json::to_value(response).unwrap_or(serde_json::json!([])))
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
-    pub fn get_program_accounts(
+    pub async fn get_program_accounts(
         &self,
         program_id: &str,
         data_size: Option<usize>,
@@ -312,55 +372,64 @@ impl SolanaRpcClient {
             ));
         }
 
-        let program = program_id.parse_pubkey()?;
+        let client = self.clone();
+        let program_id = program_id.to_string();
+        let memcmp = memcmp.map(|(offset, bytes)| (offset, bytes.to_string()));
+        let commitment = commitment.map(|s| s.to_string());
+        let encoding = encoding.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let program = program_id.parse_pubkey()?;
 
-        let mut filters = Vec::new();
-        if let Some(size) = data_size {
-            filters.push(RpcFilterType::DataSize(size as u64));
-        }
-        if let Some((offset, bytes)) = memcmp {
-            filters.push(RpcFilterType::Memcmp(Memcmp::new(
-                offset,
-                MemcmpEncodedBytes::Base58(bytes.to_string()),
-            )));
-        }
+            let mut filters = Vec::new();
+            if let Some(size) = data_size {
+                filters.push(RpcFilterType::DataSize(size as u64));
+            }
+            if let Some((offset, bytes)) = memcmp {
+                filters.push(RpcFilterType::Memcmp(Memcmp::new(
+                    offset,
+                    MemcmpEncodedBytes::Base58(bytes),
+                )));
+            }
 
-        let enc = Self::parse_encoding(encoding.unwrap_or("base64"))?;
-        let config = RpcProgramAccountsConfig {
-            filters: if filters.is_empty() {
-                None
-            } else {
-                Some(filters)
-            },
-            account_config: RpcAccountInfoConfig {
-                encoding: Some(enc),
-                commitment: Some(Self::parse_commitment(commitment)),
-                data_slice: None,
-                min_context_slot: None,
-            },
-            with_context: Some(false),
-            sort_results: None,
-        };
+            let enc = Self::parse_encoding(encoding.as_deref().unwrap_or("base64"))?;
+            let config = RpcProgramAccountsConfig {
+                filters: if filters.is_empty() {
+                    None
+                } else {
+                    Some(filters)
+                },
+                account_config: RpcAccountInfoConfig {
+                    encoding: Some(enc),
+                    commitment: Some(Self::parse_commitment(commitment.as_deref())),
+                    data_slice: None,
+                    min_context_slot: None,
+                },
+                with_context: Some(false),
+                sort_results: None,
+            };
 
-        let accounts = self
-            .client
-            .get_program_accounts_with_config(&program, config)
-            .map_err(SolanaMcpError::from)?;
+            let accounts = client
+                .client
+                .get_program_accounts_with_config(&program, config)
+                .map_err(SolanaMcpError::from)?;
 
-        let result: Vec<serde_json::Value> = accounts
-            .into_iter()
-            .map(|(pubkey, account)| {
-                serde_json::json!({
-                    "pubkey": pubkey.to_string(),
-                    "account": Self::serialize_account(account, enc),
+            let result: Vec<serde_json::Value> = accounts
+                .into_iter()
+                .map(|(pubkey, account)| {
+                    serde_json::json!({
+                        "pubkey": pubkey.to_string(),
+                        "account": Self::serialize_account(account, enc),
+                    })
                 })
-            })
-            .collect();
+                .collect();
 
-        Ok(serde_json::to_value(result).unwrap_or(serde_json::json!([])))
+            Ok(serde_json::to_value(result).unwrap_or(serde_json::json!([])))
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
-    pub fn simulate_transaction(
+    pub async fn simulate_transaction(
         &self,
         transaction: &str,
         encoding: Option<&str>,
@@ -373,34 +442,45 @@ impl SolanaRpcClient {
             ));
         }
 
-        let tx_bytes = match encoding.unwrap_or("base64") {
-            "base58" => bs58::decode(transaction)
-                .into_vec()
-                .map_err(|e| SolanaMcpError::RpcError(format!("Failed to decode transaction: {}", e)))?,
-            _ => BASE64_STANDARD
-                .decode(transaction)
-                .map_err(|e| SolanaMcpError::RpcError(format!("Failed to decode transaction: {}", e)))?,
-        };
+        let client = self.clone();
+        let transaction = transaction.to_string();
+        let encoding = encoding.map(|s| s.to_string());
+        let commitment = commitment.map(|s| s.to_string());
+        spawn_blocking(move || {
+            let tx_bytes = match encoding.as_deref().unwrap_or("base64") {
+                "base58" => bs58::decode(&transaction)
+                    .into_vec()
+                    .map_err(|e| SolanaMcpError::RpcError(format!("Failed to decode transaction: {}", e)))?,
+                _ => BASE64_STANDARD
+                    .decode(&transaction)
+                    .map_err(|e| SolanaMcpError::RpcError(format!("Failed to decode transaction: {}", e)))?,
+            };
 
-        let tx: Transaction = deserialize(&tx_bytes)
-            .map_err(|e| SolanaMcpError::RpcError(format!("Failed to deserialize transaction: {}", e)))?;
+            let tx: Transaction = deserialize(&tx_bytes)
+                .map_err(|e| SolanaMcpError::RpcError(format!("Failed to deserialize transaction: {}", e)))?;
 
-        let config = RpcSimulateTransactionConfig {
-            commitment: Some(Self::parse_commitment(commitment)),
-            encoding: None,
-            replace_recent_blockhash,
-            sig_verify: false,
-            inner_instructions: false,
-            accounts: None,
-            min_context_slot: None,
-        };
+            let config = RpcSimulateTransactionConfig {
+                commitment: Some(Self::parse_commitment(commitment.as_deref())),
+                encoding: None,
+                replace_recent_blockhash,
+                sig_verify: false,
+                inner_instructions: false,
+                accounts: None,
+                min_context_slot: None,
+            };
 
-        let result = self
-            .client
-            .simulate_transaction_with_config(&tx, config)
-            .map_err(SolanaMcpError::from)?;
+            let result = client
+                .client
+                .simulate_transaction_with_config(&tx, config)
+                .map_err(SolanaMcpError::from)?;
 
-        Ok(serde_json::to_value(result.value).unwrap_or(serde_json::json!({"error": "Failed to serialize result"})))
+            Ok(
+                serde_json::to_value(result.value)
+                    .unwrap_or(serde_json::json!({"error": "Failed to serialize result"})),
+            )
+        })
+        .await
+        .map_err(|_| SolanaMcpError::TaskJoinError)?
     }
 
     // ==================== WRITE TOOLS ====================

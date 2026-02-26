@@ -19,9 +19,10 @@ pub struct GetSlotTool {
 }
 
 impl GetSlotTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         let slot = client
             .get_slot(self.commitment.as_deref())
+            .await
             .map_err(CallToolError::new)?;
 
         let message = format!("Current slot: {}", slot);
