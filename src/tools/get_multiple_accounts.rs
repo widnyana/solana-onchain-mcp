@@ -32,7 +32,7 @@ pub struct GetMultipleAccountsTool {
 }
 
 impl GetMultipleAccountsTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         if self.addresses.is_empty() {
             return Ok(CallToolResult::text_content(vec![TextContent::from(
                 "Error: At least one address is required",
@@ -51,6 +51,7 @@ impl GetMultipleAccountsTool {
                 self.encoding.as_deref(),
                 self.commitment.as_deref(),
             )
+            .await
             .map_err(CallToolError::new)?;
 
         Ok(CallToolResult::text_content(vec![

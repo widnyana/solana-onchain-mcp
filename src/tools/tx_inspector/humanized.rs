@@ -24,10 +24,11 @@ pub struct InspectTransactionHumanizedTool {
 }
 
 impl InspectTransactionHumanizedTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         // Use the existing get_transaction method
         let tx = client
             .get_transaction(&self.signature, self.commitment.as_deref())
+            .await
             .map_err(CallToolError::new)?;
 
         // Create humanized analysis

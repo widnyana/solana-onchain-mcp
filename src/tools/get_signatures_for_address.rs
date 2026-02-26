@@ -38,7 +38,7 @@ pub struct GetSignaturesForAddressTool {
 }
 
 impl GetSignaturesForAddressTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         let limit = self
             .limit
             .unwrap_or(DEFAULT_SIGNATURES_LIMIT)
@@ -52,6 +52,7 @@ impl GetSignaturesForAddressTool {
                 self.until.as_deref(),
                 self.commitment.as_deref(),
             )
+            .await
             .map_err(CallToolError::new)?;
 
         Ok(CallToolResult::text_content(vec![

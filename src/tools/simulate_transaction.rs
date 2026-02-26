@@ -34,7 +34,7 @@ pub struct SimulateTransactionTool {
 }
 
 impl SimulateTransactionTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         let result = client
             .simulate_transaction(
                 &self.transaction,
@@ -42,6 +42,7 @@ impl SimulateTransactionTool {
                 self.replace_recent_blockhash.unwrap_or(false),
                 self.commitment.as_deref(),
             )
+            .await
             .map_err(CallToolError::new)?;
 
         Ok(CallToolResult::text_content(vec![

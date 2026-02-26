@@ -22,9 +22,10 @@ pub struct GetBalanceTool {
 }
 
 impl GetBalanceTool {
-    pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
+    pub async fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
         let balance = client
             .get_balance(&self.address, self.commitment.as_deref())
+            .await
             .map_err(CallToolError::new)?;
 
         let message = format!(
