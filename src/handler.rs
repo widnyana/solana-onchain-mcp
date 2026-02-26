@@ -72,7 +72,7 @@ impl ServerHandler for SolanaMcpHandler {
                 .filter(|t| {
                     !matches!(
                         t.name.as_str(),
-                        "transfer_sol" | "transfer_token" | "create_ata"
+                        "transfer_sol" | "transfer_token" | "create_ata" | "approve_token" | "revoke_token"
                     )
                 })
                 .collect()
@@ -92,6 +92,18 @@ impl ServerHandler for SolanaMcpHandler {
 
         // Match the tool variant and execute
         match tool {
+            SolanaTools::ApproveTokenTool(approve_token_tool) => {
+                let keypair = self.require_keypair()?;
+
+                let result = approve_token_tool
+                    .call_tool(&client, keypair)
+                    .await
+                    .map_err(CallToolError::new)?;
+
+                Ok(CallToolResult::text_content(vec![TextContent::from(
+                    serde_json::to_string(&result).unwrap_or_else(|_| "Token approval successful".to_string()),
+                )]))
+            }
             SolanaTools::CreateAtaTool(create_ata_tool) => {
                 let keypair = self.require_keypair()?;
                 let result = create_ata_tool
@@ -154,6 +166,18 @@ impl ServerHandler for SolanaMcpHandler {
             SolanaTools::InspectTransactionRawTool(inspect_raw_tool) => inspect_raw_tool.call_tool(&client),
             SolanaTools::InspectTransactionHumanizedTool(inspect_humanized_tool) => {
                 inspect_humanized_tool.call_tool(&client)
+            }
+            SolanaTools::RevokeTokenTool(revoke_token_tool) => {
+                let keypair = self.require_keypair()?;
+
+                let result = revoke_token_tool
+                    .call_tool(&client, keypair)
+                    .await
+                    .map_err(CallToolError::new)?;
+
+                Ok(CallToolResult::text_content(vec![TextContent::from(
+                    serde_json::to_string(&result).unwrap_or_else(|_| "Token revocation successful".to_string()),
+                )]))
             }
         }
     }
