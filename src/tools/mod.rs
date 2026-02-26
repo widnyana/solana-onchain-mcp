@@ -4,6 +4,7 @@ use rust_mcp_sdk::{
 };
 
 mod approve_token;
+mod close_token_account;
 mod create_ata;
 mod get_account_info;
 mod get_balance;
@@ -22,6 +23,7 @@ mod transfer_token;
 pub mod tx_inspector;
 
 pub use approve_token::*;
+pub use close_token_account::*;
 pub use create_ata::*;
 pub use get_account_info::*;
 pub use get_balance::*;
@@ -46,6 +48,7 @@ tool_box!(
     SolanaTools,
     [
         ApproveTokenTool,
+        CloseTokenAccountTool,
         CreateAtaTool,
         GetAccountInfoTool,
         GetBalanceTool,

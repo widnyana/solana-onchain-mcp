@@ -72,7 +72,12 @@ impl ServerHandler for SolanaMcpHandler {
                 .filter(|t| {
                     !matches!(
                         t.name.as_str(),
-                        "transfer_sol" | "transfer_token" | "create_ata" | "approve_token" | "revoke_token"
+                        "transfer_sol"
+                            | "transfer_token"
+                            | "create_ata"
+                            | "approve_token"
+                            | "revoke_token"
+                            | "close_token_account"
                     )
                 })
                 .collect()
@@ -102,6 +107,18 @@ impl ServerHandler for SolanaMcpHandler {
 
                 Ok(CallToolResult::text_content(vec![TextContent::from(
                     serde_json::to_string(&result).unwrap_or_else(|_| "Token approval successful".to_string()),
+                )]))
+            }
+            SolanaTools::CloseTokenAccountTool(close_token_account_tool) => {
+                let keypair = self.require_keypair()?;
+
+                let result = close_token_account_tool
+                    .call_tool(&client, keypair)
+                    .await
+                    .map_err(CallToolError::new)?;
+
+                Ok(CallToolResult::text_content(vec![TextContent::from(
+                    serde_json::to_string(&result).unwrap_or_else(|_| "Token account closed".to_string()),
                 )]))
             }
             SolanaTools::CreateAtaTool(create_ata_tool) => {
