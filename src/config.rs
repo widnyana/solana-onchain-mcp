@@ -87,13 +87,12 @@ fn validate_custom_url(url: &str) -> Result<String> {
 
     let parsed = url::Url::parse(url).map_err(|e| SolanaMcpError::InvalidEndpoint(e.to_string()))?;
 
-    // Block private IPs for https:// only (http:// allowed for any host)
-    if url.starts_with("https://")
-        && let Some(host) = parsed.host_str()
+    // Block private IPs for ALL schemes
+    if let Some(host) = parsed.host_str()
         && is_private_ip(host)
     {
         return Err(SolanaMcpError::InvalidEndpoint(
-            "Private network URLs are not allowed for https://".to_string(),
+            "Private network URLs are not allowed. Use 'devnet' or 'testnet' for development.".to_string(),
         ));
     }
 
@@ -173,15 +172,15 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_http_allowed() {
-        // http:// URLs should be allowed for any host
+    fn test_http_public_allowed() {
+        // http:// with public host should be allowed
         unsafe {
             env::set_var("SOLANA_NETWORK", "http://example.com:8899");
         }
         let config = Config::from_env().unwrap();
         assert_eq!(
             config.rpc_url, "http://example.com:8899",
-            "http:// with any host should be allowed"
+            "http:// with public host should be allowed"
         );
         unsafe {
             env::remove_var("SOLANA_NETWORK");
@@ -190,15 +189,15 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_http_private_allowed() {
-        // http:// with private IP should be allowed for local dev
+    fn test_http_private_ip_rejected() {
+        // http:// with private IP should be rejected
         unsafe {
             env::set_var("SOLANA_NETWORK", "http://127.0.0.1:8899");
         }
-        let config = Config::from_env().unwrap();
-        assert_eq!(
-            config.rpc_url, "http://127.0.0.1:8899",
-            "http:// with private IP should be allowed"
+        let result = Config::from_env();
+        assert!(
+            result.is_err(),
+            "http:// with private IP should be rejected"
         );
         unsafe {
             env::remove_var("SOLANA_NETWORK");
