@@ -14,6 +14,7 @@ use crate::{config::Config, error::SolanaMcpError, keypair::LoadedKeypair, rpc::
 
 pub struct SolanaMcpHandler {
     client: SolanaRpcClient,
+    config: Config,
     keypair: Option<LoadedKeypair>,
 }
 
@@ -50,7 +51,7 @@ impl SolanaMcpHandler {
             }
         };
 
-        Ok(Self { client, keypair })
+        Ok(Self { client, config: config.clone(), keypair })
     }
 }
 
@@ -108,6 +109,9 @@ impl ServerHandler for SolanaMcpHandler {
             }
             SolanaTools::GetProgramAccountsTool(get_program_accounts_tool) => {
                 get_program_accounts_tool.call_tool(&client)
+            }
+            SolanaTools::GetServerInfoTool(get_server_info_tool) => {
+                get_server_info_tool.call_tool(&self.config, self.keypair.as_ref())
             }
             SolanaTools::GetSignaturesForAddressTool(get_signatures_for_address_tool) => {
                 get_signatures_for_address_tool.call_tool(&client)
