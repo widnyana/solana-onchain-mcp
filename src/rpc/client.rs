@@ -230,7 +230,7 @@ impl SolanaRpcClient {
         program_id: Option<&str>,
         commitment: Option<&str>,
     ) -> Result<serde_json::Value> {
-        let _commitment_config = Self::parse_commitment(commitment); // Parsed but not yet used - reserved for future implementation
+        let commitment_config = Self::parse_commitment(commitment);
         let owner = owner_address.parse_pubkey()?;
 
         let token_account_filter = match (mint, program_id) {
@@ -251,7 +251,7 @@ impl SolanaRpcClient {
 
         let response = self
             .client
-            .get_token_accounts_by_owner(&owner, token_account_filter)
+            .get_token_accounts_by_owner_with_commitment(&owner, token_account_filter, commitment_config)
             .map_err(SolanaMcpError::from)?;
 
         Ok(serde_json::to_value(response).unwrap_or(serde_json::json!([])))
