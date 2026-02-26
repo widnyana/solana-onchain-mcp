@@ -30,7 +30,11 @@ pub struct SolanaRpcClient {
 }
 
 impl SolanaRpcClient {
+    /// Maximum number of accounts returned by `getMultipleAccounts`.
+    /// The Solana RPC enforces a hard limit of 100 accounts per request.
     const MAX_MULTIPLE_ACCOUNTS: usize = 100;
+    /// Maximum base64-encoded transaction input size in bytes (~4KB).
+    /// Solana transactions are capped at ~1.2KB raw; this allows for base64 encoding overhead (~33%).
     const MAX_TRANSACTION_INPUT_SIZE: usize = 4096;
 
     pub fn new(config: &Config) -> Self {
