@@ -11,7 +11,7 @@ use crate::{error::Result, keypair::LoadedKeypair, rpc::SolanaRpcClient, utils::
     The delegate can transfer up to the approved amount. \
     Revoke with revoke_token when no longer needed."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct ApproveTokenTool {
     /// Token account to approve spending from
     pub token_account: String,

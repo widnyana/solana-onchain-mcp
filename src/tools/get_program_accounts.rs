@@ -7,7 +7,7 @@ use super::json_to_text;
 use crate::rpc::SolanaRpcClient;
 
 /// Filter for memcmp comparison at a specific offset
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct MemcmpFilter {
     /// Offset into account data to start comparison
     pub offset: u64,
@@ -31,7 +31,7 @@ Common program IDs:
 - TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA (Token Program)
 - TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb (Token-2022)"
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct GetProgramAccountsTool {
     /// Program ID to query accounts for (base58 encoded)
     pub program_id: String,

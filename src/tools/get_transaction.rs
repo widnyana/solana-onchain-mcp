@@ -12,7 +12,7 @@ use crate::rpc::SolanaRpcClient;
 including status, fees, and account changes. Use this when the user asks about a \
 specific transaction, its status, or what it did."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct GetTransactionTool {
     /// The transaction signature to fetch
     pub signature: String,

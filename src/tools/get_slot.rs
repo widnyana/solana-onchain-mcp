@@ -11,7 +11,7 @@ use crate::rpc::SolanaRpcClient;
 Use this to check blockchain progress, estimate transaction confirmation time, \
 or verify network connectivity. The slot number increases with each block."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct GetSlotTool {
     /// Commitment level: "processed" (fastest, may rollback), \
     /// "confirmed" (default, ~400ms latency), "finalized" (~1s, permanent)
