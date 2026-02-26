@@ -12,7 +12,7 @@ use crate::rpc::SolanaRpcClient;
 account funds, or SOL holdings. Does NOT return SPL token balances - those require \
 a different RPC call."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct GetBalanceTool {
     /// The Solana address to check balance for
     pub address: String,

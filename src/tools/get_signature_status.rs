@@ -14,7 +14,7 @@ use crate::rpc::SolanaRpcClient;
 status and slot. Use this after transfer_sol or transfer_token to verify the transaction \
 was processed by the network."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct GetSignatureStatusTool {
     /// The transaction signature to check
     pub signature: String,

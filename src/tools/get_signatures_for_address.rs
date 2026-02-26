@@ -18,7 +18,7 @@ Use this tool when you need to:
 Returns signatures with slot, blockTime, err (null if success), and confirmationStatus.
 Use 'before' and 'until' for pagination."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct GetSignaturesForAddressTool {
     /// The Solana address to get transaction signatures for
     pub address: String,

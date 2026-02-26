@@ -13,7 +13,7 @@ Recipient must have an associated token account (ATA) for this token mint. \
 Use this when the user wants to send SPL tokens to another Solana address. \
 The keypair must be configured via SOLANA_KEYPAIR_PATH environment variable."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct TransferTokenTool {
     /// The recipient's Solana address (base58 encoded)
     pub to_address: String,

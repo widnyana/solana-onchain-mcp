@@ -14,7 +14,7 @@ The amount is specified in lamports (1 SOL = 1,000,000,000 lamports). \
 Use this tool when the user wants to send SOL to another address. \
 Requires a configured keypair (SOLANA_KEYPAIR_PATH env variable)."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct TransferSolTool {
     /// The recipient Solana address (base58 encoded, 32-44 characters)
     pub to_address: String,

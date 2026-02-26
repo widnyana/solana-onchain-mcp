@@ -10,7 +10,7 @@ use crate::{error::Result, keypair::LoadedKeypair, rpc::SolanaRpcClient, utils::
     The account must have zero balance. \
     Rent is returned to the destination account (usually your wallet)."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct CloseTokenAccountTool {
     /// Token account to close (must have 0 balance)
     pub token_account: String,

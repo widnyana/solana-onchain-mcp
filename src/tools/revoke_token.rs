@@ -10,7 +10,7 @@ use crate::{error::Result, keypair::LoadedKeypair, rpc::SolanaRpcClient, utils::
 Use this to remove approval previously granted via approve_token. \
 This is recommended after completing DEX or lending protocol interactions to improve security."
 )]
-#[derive(Debug, ::serde::Deserialize, ::serde::Serialize, JsonSchema)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct RevokeTokenTool {
     /// Token account to revoke delegate authority from
     pub token_account: String,
