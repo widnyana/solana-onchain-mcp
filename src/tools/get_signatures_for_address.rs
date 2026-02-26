@@ -6,6 +6,11 @@ use rust_mcp_sdk::{
 use super::json_to_text;
 use crate::rpc::SolanaRpcClient;
 
+/// Default number of signatures to return when limit is not specified.
+const DEFAULT_SIGNATURES_LIMIT: u64 = 100;
+/// Maximum number of signatures that can be returned in a single request.
+const MAX_SIGNATURES_LIMIT: u64 = 1000;
+
 #[mcp_tool(
     name = "get_signatures_for_address",
     description = "Get transaction signatures for an address, ordered newest to oldest.
@@ -34,7 +39,10 @@ pub struct GetSignaturesForAddressTool {
 
 impl GetSignaturesForAddressTool {
     pub fn call_tool(&self, client: &SolanaRpcClient) -> Result<CallToolResult, CallToolError> {
-        let limit = self.limit.unwrap_or(100).clamp(1, 1000);
+        let limit = self
+            .limit
+            .unwrap_or(DEFAULT_SIGNATURES_LIMIT)
+            .clamp(1, MAX_SIGNATURES_LIMIT);
 
         let signatures = client
             .get_signatures_for_address(

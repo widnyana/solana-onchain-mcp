@@ -6,6 +6,10 @@ use rust_mcp_sdk::{
 use super::json_to_text;
 use crate::rpc::SolanaRpcClient;
 
+/// Maximum number of accounts that can be fetched in a single request.
+/// Matches the Solana RPC hard limit.
+const MAX_MULTIPLE_ACCOUNTS: usize = 100;
+
 #[mcp_tool(
     name = "get_multiple_accounts",
     description = "Batch fetch multiple Solana accounts in a single request (up to 100).
@@ -35,7 +39,7 @@ impl GetMultipleAccountsTool {
             )]));
         }
 
-        if self.addresses.len() > 100 {
+        if self.addresses.len() > MAX_MULTIPLE_ACCOUNTS {
             return Ok(CallToolResult::text_content(vec![TextContent::from(
                 "Error: Maximum 100 addresses allowed per request",
             )]));
