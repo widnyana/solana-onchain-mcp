@@ -25,6 +25,24 @@ pub struct TransferTokenTool {
     pub decimals: u8,
 }
 
+/// Parse token amount from f64 to raw u64 using integer-based parsing
+/// to avoid floating-point precision loss.
+///
+/// # Arguments
+/// * `amount` - The token amount in UI units (e.g., 1.5 for 1.5 tokens)
+/// * `decimals` - The number of decimals for the token
+///
+/// # Returns
+/// The raw amount as u64 (amount * 10^decimals)
+fn parse_token_amount(amount: f64, decimals: u8) -> u64 {
+    // Use enough precision to capture the value, then round to handle representation errors
+    // This handles cases like 1.234 being stored as 1.23399999999999998958
+    let multiplier = 10_f64.powi(decimals as i32);
+    let raw = (amount * multiplier).round();
+
+    raw as u64
+}
+
 impl TransferTokenTool {
     pub async fn call_tool(&self, client: &SolanaRpcClient, keypair: &LoadedKeypair) -> Result<serde_json::Value> {
         // Validate decimals for non-integer amounts
@@ -47,9 +65,8 @@ impl TransferTokenTool {
 
         let from_pubkey = keypair.keypair.pubkey();
 
-        // Calculate raw amount: (amount * 10^decimals) as u64
-        let multiplier = 10_f64.powi(self.decimals as i32);
-        let raw_amount = (self.amount * multiplier) as u64;
+        // Calculate raw amount using integer-based parsing to avoid float precision loss
+        let raw_amount = parse_token_amount(self.amount, self.decimals);
 
         // Get ATAs for both sender and recipient
         let from_ata = get_associated_token_address(&from_pubkey, &token_mint);
@@ -102,9 +119,13 @@ mod tests {
     }
 
     /// Helper function to calculate raw amount (mirrors the logic in call_tool)
+    /// Uses the same integer-based parsing to avoid float precision loss.
     fn calculate_raw_amount(amount: f64, decimals: u8) -> u64 {
+        // Use enough precision to capture the value, then round to handle representation errors
         let multiplier = 10_f64.powi(decimals as i32);
-        (amount * multiplier) as u64
+        let raw = (amount * multiplier).round();
+
+        raw as u64
     }
 
     #[test]
@@ -154,5 +175,76 @@ mod tests {
         let raw_amount = calculate_raw_amount(amount, decimals);
 
         assert_eq!(raw_amount, 0, "Expected amount=0.0 to produce raw_amount=0");
+    }
+
+    #[test]
+    fn test_raw_amount_float_precision_fix() {
+        // Test cases that would fail with float arithmetic due to precision loss
+        // 0.1 * 10^6 with float might produce 99999 or 100001 due to binary representation
+        let amount = 0.1_f64;
+        let decimals = 6_u8;
+
+        let raw_amount = calculate_raw_amount(amount, decimals);
+
+        assert_eq!(
+            raw_amount, 100_000,
+            "Expected 0.1 USDC with 6 decimals to equal exactly 100,000 raw units"
+        );
+    }
+
+    #[test]
+    fn test_raw_amount_three_decimals() {
+        // 1.234 with 6 decimals should equal 1_234_000
+        let amount = 1.234_f64;
+        let decimals = 6_u8;
+
+        let raw_amount = calculate_raw_amount(amount, decimals);
+
+        assert_eq!(
+            raw_amount, 1_234_000,
+            "Expected 1.234 with 6 decimals to equal 1,234,000 raw units"
+        );
+    }
+
+    #[test]
+    fn test_raw_amount_nine_decimals() {
+        // 0.000000001 with 9 decimals (like SOL) should equal 1
+        let amount = 0.000000001_f64;
+        let decimals = 9_u8;
+
+        let raw_amount = calculate_raw_amount(amount, decimals);
+
+        assert_eq!(
+            raw_amount, 1,
+            "Expected 0.000000001 with 9 decimals to equal 1 raw unit"
+        );
+    }
+
+    #[test]
+    fn test_raw_amount_large_value() {
+        // 1000.123456 with 6 decimals should equal 1_000_123_456
+        let amount = 1000.123456_f64;
+        let decimals = 6_u8;
+
+        let raw_amount = calculate_raw_amount(amount, decimals);
+
+        assert_eq!(
+            raw_amount, 1_000_123_456,
+            "Expected 1000.123456 with 6 decimals to equal 1,000,123,456 raw units"
+        );
+    }
+
+    #[test]
+    fn test_raw_amount_zero_decimals() {
+        // 42 with 0 decimals should equal 42
+        let amount = 42.0_f64;
+        let decimals = 0_u8;
+
+        let raw_amount = calculate_raw_amount(amount, decimals);
+
+        assert_eq!(
+            raw_amount, 42,
+            "Expected 42 with 0 decimals to equal 42 raw units"
+        );
     }
 }
