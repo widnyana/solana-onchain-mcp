@@ -22,13 +22,8 @@ pub use programs::{
 pub use raw::InspectTransactionRawTool;
 
 /// Lookup table for well-known Solana program names
-pub fn get_program_name(pubkey: &str) -> Option<&'static str> {
-    identify_program(pubkey).map(|info| {
-        // The ProgramInfo is static, so we can return a static str
-        let name: &str = &info.name;
-        // SAFETY: ProgramInfo instances are lazily static, names are &'static str
-        unsafe { std::mem::transmute::<&str, &'static str>(name) }
-    })
+pub fn get_program_name(pubkey: &str) -> Option<String> {
+    identify_program(pubkey).map(|info| info.name.clone())
 }
 
 /// Format an InstructionError into a human-readable string

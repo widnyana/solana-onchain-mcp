@@ -23,43 +23,43 @@ mod get_program_name_tests {
     #[test]
     fn test_system_program() {
         let result = get_program_name("11111111111111111111111111111111");
-        assert_eq!(result, Some("System Program"));
+        assert_eq!(result.as_deref(), Some("System Program"));
     }
 
     #[test]
     fn test_token_program() {
         let result = get_program_name("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-        assert_eq!(result, Some("Token Program"));
+        assert_eq!(result.as_deref(), Some("Token Program"));
     }
 
     #[test]
     fn test_token2022_program() {
         let result = get_program_name("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
-        assert_eq!(result, Some("Token-2022 Program"));
+        assert_eq!(result.as_deref(), Some("Token-2022 Program"));
     }
 
     #[test]
     fn test_ata_program() {
         let result = get_program_name("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
-        assert_eq!(result, Some("Associated Token Account"));
+        assert_eq!(result.as_deref(), Some("Associated Token Account"));
     }
 
     #[test]
     fn test_raydium_dex() {
         let result = get_program_name("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
-        assert_eq!(result, Some("Raydium DEX"));
+        assert_eq!(result.as_deref(), Some("Raydium DEX"));
     }
 
     #[test]
     fn test_jupiter_aggregator() {
         let result = get_program_name("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
-        assert_eq!(result, Some("Jupiter Aggregator"));
+        assert_eq!(result.as_deref(), Some("Jupiter Aggregator"));
     }
 
     #[test]
     fn test_orca_whirlpool() {
         let result = get_program_name("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc");
-        assert_eq!(result, Some("Orca Whirlpool"));
+        assert_eq!(result.as_deref(), Some("Orca Whirlpool"));
     }
 
     #[test]
