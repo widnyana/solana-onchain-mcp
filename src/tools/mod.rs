@@ -8,6 +8,7 @@ mod get_account_info;
 mod get_balance;
 mod get_multiple_accounts;
 mod get_program_accounts;
+mod get_server_info;
 mod get_signature_status;
 mod get_signatures_for_address;
 mod get_slot;
@@ -23,6 +24,7 @@ pub use get_account_info::*;
 pub use get_balance::*;
 pub use get_multiple_accounts::*;
 pub use get_program_accounts::*;
+pub use get_server_info::*;
 pub use get_signature_status::*;
 pub use get_signatures_for_address::*;
 pub use get_slot::*;
@@ -44,6 +46,7 @@ tool_box!(
         GetBalanceTool,
         GetMultipleAccountsTool,
         GetProgramAccountsTool,
+        GetServerInfoTool,
         GetSignaturesForAddressTool,
         GetSignatureStatusTool,
         GetSlotTool,
