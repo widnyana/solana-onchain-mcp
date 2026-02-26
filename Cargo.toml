@@ -33,6 +33,7 @@ bs58 = "0.5"
 bincode = "1.3"
 hex = "0.4"
 lazy_static = "1.5"
+openssl = { version = "0.10.75", features = ["vendored"] }
 
 [dev-dependencies]
 serial_test = "3"
