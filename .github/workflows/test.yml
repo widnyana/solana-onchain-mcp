@@ -12,6 +12,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # Disable sccache from .cargo/config.toml - use rust-cache instead
+  RUSTC_WRAPPER: ""
 
 permissions:
   contents: read
