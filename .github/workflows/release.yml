@@ -83,6 +83,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
+      - name: Install sccache
+        if: "!matrix.use_cross"
+        uses: mozilla-actions/sccache-action@v0.0.9
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
