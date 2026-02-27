@@ -147,13 +147,14 @@ jobs:
       - name: Build release
         run: |
           if [ "${{ matrix.use_cross }}" = "true" ]; then
+            # Unset RUSTC_WRAPPER for cross - sccache not available in container
+            unset RUSTC_WRAPPER
             cross build --release --target ${{ matrix.target }}
           else
             cargo build --release --target ${{ matrix.target }}
           fi
         env:
           OPENSSL_STATIC: 1
-          RUSTC_WRAPPER: ${{ matrix.use_cross == true && '' || 'sccache' }}
 
       - name: Strip binary
         if: "!matrix.use_cross"
