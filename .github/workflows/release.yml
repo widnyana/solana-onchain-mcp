@@ -3,16 +3,16 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       draft:
-        description: 'Create as draft release'
+        description: "Create as draft release"
         required: false
         default: true
         type: boolean
       skip_publish:
-        description: 'Skip crates.io publishing'
+        description: "Skip crates.io publishing"
         required: false
         default: true
         type: boolean
@@ -26,18 +26,18 @@ jobs:
     outputs:
       version: ${{ steps.extract.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Extract version
         id: extract
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
             VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d '"' -f2)
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           fi
       - name: Verify version matches Cargo.toml
-        if: github.event_name != 'workflow_dispatch'
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           CARGO_VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d '"' -f2)
           TAG_VERSION="${{ steps.extract.outputs.version }}"
@@ -49,7 +49,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Run all tests
@@ -78,7 +78,7 @@ jobs:
             use_cross: false
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -112,7 +112,7 @@ jobs:
           mv target/${{ matrix.target }}/release/solana-onchain-mcp "$BIN_NAME"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}
           path: solana-onchain-mcp-${{ matrix.target }}
@@ -122,9 +122,9 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     environment: release
-    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_publish }}
+    if: ${{ startsWith(github.ref, 'refs/tags/') || !inputs.skip_publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - name: Publish to crates.io
         run: cargo publish --token ${{ secrets.CRATESIO_TOKEN }}
@@ -135,10 +135,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: binaries
           merge-multiple: false
@@ -153,6 +153,6 @@ jobs:
         with:
           files: release-assets/*
           generate_release_notes: true
-          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft }}
+          draft: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.draft }}
           prerelease: ${{ contains(needs.verify.outputs.version, '-') }}
           tag_name: v${{ needs.verify.outputs.version }}
