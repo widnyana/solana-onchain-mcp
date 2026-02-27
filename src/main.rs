@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use clap::Parser;
 use rust_mcp_sdk::{
@@ -8,7 +8,9 @@ use rust_mcp_sdk::{
     schema::{Implementation, InitializeResult, ProtocolVersion, ServerCapabilities, ServerCapabilitiesTools},
 };
 use solana_onchain_mcp::{config::Config, handler::SolanaMcpHandler};
-use tracing_subscriber::EnvFilter;
+mod logging;
+
+use tracing::{error, info, warn};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "solana-onchain-mcp")]
@@ -32,6 +34,27 @@ struct Args {
     /// Allow keypair operations in HTTP mode (requires --accept-risk and localhost)
     #[arg(long)]
     http_allow_keypair: bool,
+
+    #[arg(
+        long,
+        value_name = "LEVEL",
+        help = "Log level: OFF, ERROR, WARN, INFO, DEBUG, TRACE [env: LOG_LEVEL=]"
+    )]
+    log_level: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "FORMAT",
+        help = "Log format: pretty, json [env: LOG_FORMAT=]"
+    )]
+    log_format: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "PATH",
+        help = "Write logs to file [env: LOG_PATH=]"
+    )]
+    log_path: Option<PathBuf>,
 }
 
 fn validate_http_security(args: &Args, config: &mut Config) -> Result<(), String> {
@@ -45,7 +68,7 @@ fn validate_http_security(args: &Args, config: &mut Config) -> Result<(), String
     }
     if !args.http_allow_keypair {
         config.keypair_path = None;
-        eprintln!("INFO: HTTP mode running read-only (keypair disabled)");
+        info!("HTTP mode running read-only (keypair disabled)");
         return Ok(());
     }
     if !args.accept_risk {
@@ -54,7 +77,7 @@ fn validate_http_security(args: &Args, config: &mut Config) -> Result<(), String
     if args.host != "127.0.0.1" && args.host != "localhost" {
         return Err("--http-allow-keypair requires --host 127.0.0.1 for security".into());
     }
-    eprintln!("WARN: HTTP mode with signing capability. Ensure reverse proxy with auth!");
+    warn!("HTTP mode with signing capability enabled. Only use on localhost!");
     Ok(())
 }
 
@@ -94,7 +117,7 @@ async fn run_http_server(handler: SolanaMcpHandler, args: &Args, server_details:
             ..Default::default()
         },
     );
-    eprintln!("HTTP server listening on {}:{}", args.host, args.port);
+    info!(host = %args.host, port = args.port, "HTTP server listening");
     server.start().await
 }
 
@@ -112,22 +135,36 @@ async fn run_stdio_server(handler: SolanaMcpHandler, server_details: InitializeR
 
 #[tokio::main]
 async fn main() -> SdkResult<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
-
     let args = Args::parse();
+
+    let mut logging_config = logging::LoggingConfig::from_env();
+    logging_config.apply_cli_overrides(
+        args.log_level.clone(),
+        args.log_format.clone(),
+        args.log_path.clone(),
+    );
+    if let Err(e) = logging_config.init() {
+        eprintln!("Warning: logging initialization failed: {}", e);
+    }
+
     let mut config = Config::from_env().expect("Failed to load configuration");
 
     if args.accept_risk {
         config.accept_risk = true;
     }
 
-    // Security validation for HTTP mode
     if let Err(e) = validate_http_security(&args, &mut config) {
-        eprintln!("ERROR: {}", e);
+        error!(error = %e, "Security validation failed");
         std::process::exit(1);
     }
+
+    info!(
+        network = ?config.network_type,
+        mode = if args.http { "http" } else { "stdio" },
+        keypair = if config.keypair_path.is_some() { "enabled" } else { "read-only" },
+        "solana-onchain-mcp v{} ready",
+        env!("CARGO_PKG_VERSION")
+    );
 
     let handler = SolanaMcpHandler::new(&config).expect("Failed to create handler");
     let server_details = build_server_details();
@@ -202,10 +239,13 @@ mod tests {
         let mut config = Config::default();
         let args = Args {
             accept_risk: true,
-            http: false, // http not set
+            http: false,
             port: 3000,
             host: "127.0.0.1".to_string(),
             http_allow_keypair: true,
+            log_level: None,
+            log_format: None,
+            log_path: None,
         };
         let result = validate_http_security(&args, &mut config);
         assert!(result.is_err());
@@ -221,6 +261,9 @@ mod tests {
             port: 3000,
             host: "127.0.0.1".to_string(),
             http_allow_keypair: true,
+            log_level: None,
+            log_format: None,
+            log_path: None,
         };
         let result = validate_http_security(&args, &mut config);
         assert!(result.is_err());
@@ -236,6 +279,9 @@ mod tests {
             port: 3000,
             host: "0.0.0.0".to_string(),
             http_allow_keypair: true,
+            log_level: None,
+            log_format: None,
+            log_path: None,
         };
         let result = validate_http_security(&args, &mut config);
         assert!(result.is_err());
@@ -254,6 +300,9 @@ mod tests {
             port: 3000,
             host: "127.0.0.1".to_string(),
             http_allow_keypair: false,
+            log_level: None,
+            log_format: None,
+            log_path: None,
         };
         let result = validate_http_security(&args, &mut config);
         assert!(result.is_ok());

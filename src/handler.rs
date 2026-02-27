@@ -9,6 +9,7 @@ use rust_mcp_sdk::{
         TextContent,
     },
 };
+use tracing::warn;
 
 use crate::{config::Config, error::SolanaMcpError, keypair::LoadedKeypair, rpc::SolanaRpcClient, tools::SolanaTools};
 
@@ -44,7 +45,7 @@ impl SolanaMcpHandler {
                         Some(kp)
                     }
                     Err(e) => {
-                        eprintln!("WARN: {}. Continuing in read-only mode.", e);
+                        warn!(error = %e, "Keypair load failed. Continuing in read-only mode.");
                         None
                     }
                 }
