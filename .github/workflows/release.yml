@@ -84,7 +84,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install sccache
-        if: "!matrix.use_cross"
         uses: mozilla-actions/sccache-action@v0.0.9
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -108,6 +107,7 @@ jobs:
           fi
         env:
           OPENSSL_STATIC: 1
+          SCCACHE_DIR: ${{ runner.temp }}/.cache/sccache
 
       - name: Strip binary
         if: "!matrix.use_cross"

@@ -3,3 +3,17 @@ default-target = "x86_64-unknown-linux-gnu"
 
 [target.aarch64-unknown-linux-gnu]
 image = "ghcr.io/cross-rs/aarch64-unknown-linux-gnu:0.2.5"
+
+# Pass sccache environment variables to cross container
+[env]
+passthrough = [
+    "RUSTC_WRAPPER",
+    "SCCACHE_GHA_ENABLED",
+    "SCCACHE_CACHE_SIZE",
+    "SCCACHE_DIR",
+]
+
+# Mount sccache cache directory for persistent caching
+# The binary is expected to be in PATH on the host
+[target.aarch64-unknown-linux-gnu.env]
+volumes = ["SCCACHE_DIR"]
