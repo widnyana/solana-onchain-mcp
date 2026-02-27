@@ -48,22 +48,52 @@ jobs:
             exit 1
           fi
 
-  test:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+  unit-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: mozilla-actions/sccache-action@v0.0.9
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Run all tests
-        run: |
-          cargo test --verbose
-          cargo test --verbose -- --ignored
+      - name: Run unit tests
+        run: cargo test --verbose
+
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run integration tests
+        run: cargo test --verbose -- --ignored
         env:
           SOLANA_NETWORK: devnet
 
   build:
-    needs: [verify, test]
+    needs: [verify, fmt, clippy, unit-test, integration-test]
     strategy:
       matrix:
         include:
@@ -122,7 +152,7 @@ jobs:
           path: solana-onchain-mcp-${{ matrix.target }}
 
   publish-crates:
-    needs: [verify, test]
+    needs: [verify, fmt, clippy, unit-test, integration-test]
     runs-on: ubuntu-latest
     continue-on-error: true
     environment: release
