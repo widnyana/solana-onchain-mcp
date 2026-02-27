@@ -5,6 +5,7 @@ pub mod config;
 pub mod error;
 pub mod handler;
 pub mod keypair;
+pub mod logging;
 pub mod rpc;
 pub mod tools;
 pub mod utils;
