@@ -53,7 +53,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install sccache
+        id: sccache
         uses: mozilla-actions/sccache-action@v0.0.9
+        continue-on-error: true
+      - name: Install sccache (fallback for local testing)
+        if: steps.sccache.outcome == 'failure'
+        run: |
+          if ! command -v sccache &>/dev/null; then
+            cargo install sccache --locked
+          fi
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Run all tests
@@ -84,7 +93,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install sccache
+        id: sccache
         uses: mozilla-actions/sccache-action@v0.0.9
+        continue-on-error: true
+      - name: Install sccache (fallback for local testing)
+        if: steps.sccache.outcome == 'failure'
+        run: |
+          if ! command -v sccache &>/dev/null; then
+            cargo install sccache --locked
+          fi
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          mkdir -p ${{ runner.temp }}/.cache/sccache
+          echo "SCCACHE_DIR=${{ runner.temp }}/.cache/sccache" >> $GITHUB_ENV
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
