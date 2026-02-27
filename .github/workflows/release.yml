@@ -80,6 +80,8 @@ jobs:
           else
             cargo build --release --target ${{ matrix.target }}
           fi
+        env:
+          OPENSSL_STATIC: 1
 
       - name: Strip binary
         if: "!matrix.use_cross"
