@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "MCP for Solana On-Chain activities"
 authors = ["widnyana <wid@widnyana.web.id>"]
+license = "MIT"
 
 [lib]
 name = "solana_onchain_mcp"
