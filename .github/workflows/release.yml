@@ -124,26 +124,20 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Download all binaries
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: binary-*
-          merge-multiple: false
-      - name: Arrange binaries for GoReleaser
+      - name: Download all binaries to prebuilt/ for goreleaser
         run: |
-          # GoReleaser --skip=build expects: dist/<project>_<os>_<arch>/<binary>
-          mkdir -p dist
+          # Download artifacts and arrange in prebuilt/ directory structure for goreleaser prebuilt builder
+          # prebuilt.path template: prebuilt/{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Amd64 }}_{{ . }}{{ end }}/{{ .ProjectName }}
           declare -A targets=(
-            ["binary-x86_64-unknown-linux-musl"]="solana-onchain-mcp_linux_amd64_v1"
-            ["binary-aarch64-unknown-linux-musl"]="solana-onchain-mcp_linux_arm64"
-            ["binary-x86_64-apple-darwin"]="solana-onchain-mcp_darwin_amd64_v1"
-            ["binary-aarch64-apple-darwin"]="solana-onchain-mcp_darwin_arm64"
+            ["binary-x86_64-unknown-linux-musl"]="prebuilt/solana-onchain-mcp_linux_amd64_v1"
+            ["binary-aarch64-unknown-linux-musl"]="prebuilt/solana-onchain-mcp_linux_arm64"
+            ["binary-x86_64-apple-darwin"]="prebuilt/solana-onchain-mcp_darwin_amd64_v1"
+            ["binary-aarch64-apple-darwin"]="prebuilt/solana-onchain-mcp_darwin_arm64"
           )
           for artifact_dir in "${!targets[@]}"; do
-            goreleaser_dir="dist/${targets[$artifact_dir]}"
-            mkdir -p "$goreleaser_dir"
-            cp "artifacts/${artifact_dir}/solana-onchain-mcp" "$goreleaser_dir/solana-onchain-mcp"
+            target_dir="${targets[$artifact_dir]}"
+            mkdir -p "$target_dir"
+            cp "artifacts/${artifact_dir}/solana-onchain-mcp" "$target_dir/solana-onchain-mcp"
           done
       - uses: goreleaser/goreleaser-action@v6
         with:

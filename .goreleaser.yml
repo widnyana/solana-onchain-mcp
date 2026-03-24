@@ -4,10 +4,20 @@ version: 2
 before:
   hooks: []
 
-# We skip GoReleaser's build phase entirely.
-# Binaries are pre-built by the GitHub Actions matrix and placed in dist/.
+# We use pre-built binaries from CI, configured with the prebuilt builder
 builds:
-  - skip: true
+  - builder: prebuilt
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    goamd64:
+      - v1
+    prebuilt:
+      path: prebuilt/{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Amd64 }}_{{ . }}{{ end }}/{{ .ProjectName }}
+    binary: {{ .ProjectName }}
 
 archives:
   - id: default
