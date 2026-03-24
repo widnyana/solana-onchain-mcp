@@ -1,3 +1,4 @@
-dist/**
-target/**
+dist/
+target/
+artifacts/
 .worktree/
