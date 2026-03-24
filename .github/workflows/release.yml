@@ -77,19 +77,24 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - name: Install musl tools
-        if: matrix.runner == 'ubuntu-latest'
-        run: sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu
-      - name: Configure aarch64 musl linker
+      - name: Install musl tools (x86_64)
+        if: matrix.runner == 'ubuntu-latest' && matrix.cc == ''
+        run: sudo apt-get install -y musl-tools
+      - name: Install zig for aarch64 musl cross-compilation
         if: matrix.cc != ''
-        run: |
-          mkdir -p ~/.cargo
-          printf '\n[target.aarch64-unknown-linux-musl]\nlinker = "aarch64-linux-gnu-gcc"\n' >> ~/.cargo/config.toml
-      - name: Build release binary
+        uses: goto-bus-stop/setup-zig@v2
+      - name: Install cargo-zigbuild
+        if: matrix.cc != ''
+        run: cargo install cargo-zigbuild --locked
+      - name: Build release binary (native musl)
+        if: matrix.cc == ''
         run: cargo build --release --target ${{ matrix.target }}
         env:
-          CC_aarch64_unknown_linux_musl: ${{ matrix.cc }}
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: ${{ matrix.cc }}
+          RUSTC_WRAPPER: ""
+      - name: Build release binary (aarch64 musl via zigbuild)
+        if: matrix.cc != ''
+        run: cargo zigbuild --release --target ${{ matrix.target }}
+        env:
           RUSTC_WRAPPER: ""
       - name: Strip binary
         run: |
