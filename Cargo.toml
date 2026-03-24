@@ -5,6 +5,9 @@ edition = "2024"
 description = "MCP for Solana On-Chain activities"
 authors = ["widnyana <wid@widnyana.web.id>"]
 license = "MIT"
+repository = "https://github.com/widnyana/solana-onchain-mcp"
+homepage = "https://github.com/widnyana/solana-onchain-mcp"
+documentation = "https://github.com/widnyana/solana-onchain-mcp#readme"
 
 [lib]
 name = "solana_onchain_mcp"
