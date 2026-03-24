@@ -124,10 +124,15 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Download all binaries to prebuilt/ for goreleaser
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: binary-*
+          merge-multiple: false
+      - name: Arrange binaries in prebuilt/ directory structure for goreleaser
         run: |
-          # Download artifacts and arrange in prebuilt/ directory structure for goreleaser prebuilt builder
-          # prebuilt.path template: prebuilt/{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Amd64 }}_{{ . }}{{ end }}/{{ .ProjectName }}
+          # GoReleaser prebuilt.path template: prebuilt/{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Amd64 }}_{{ . }}{{ end }}/{{ .ProjectName }}
           declare -A targets=(
             ["binary-x86_64-unknown-linux-musl"]="prebuilt/solana-onchain-mcp_linux_amd64_v1"
             ["binary-aarch64-unknown-linux-musl"]="prebuilt/solana-onchain-mcp_linux_arm64"
