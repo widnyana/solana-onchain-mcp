@@ -59,9 +59,10 @@ main() {
         mkdir -p "$INSTALL_DIR"
     fi
 
-    # Install binary
+    # Install binary (GoReleaser extracts into a subdirectory: <archive-name>/<binary>)
+    local archive_dir="${download_dir}/${BINARY_NAME}-${os_name}-${arch_name}"
     echo "Installing ${BINARY_NAME} to ${INSTALL_DIR}..."
-    cp "${download_dir}/${BINARY_NAME}" "$INSTALL_DIR/"
+    cp "${archive_dir}/${BINARY_NAME}" "$INSTALL_DIR/"
     chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
 
     echo ""

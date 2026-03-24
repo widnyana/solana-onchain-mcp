@@ -149,7 +149,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --skip=build ${{ github.event.inputs.draft == 'true' && '--draft' || '' }}
+          args: release ${{ github.event.inputs.draft == 'true' && '--draft' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
