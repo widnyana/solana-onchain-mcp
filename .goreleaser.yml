@@ -4,6 +4,9 @@ version: 2
 before:
   hooks: []
 
+after:
+  - cmd: "cargo publish {{ if .IsSnapshot }}--dry-run{{ end }} --quiet --no-verify"
+
 # We skip GoReleaser's build phase entirely.
 # Binaries are pre-built by the GitHub Actions matrix and placed in dist/.
 builds:
