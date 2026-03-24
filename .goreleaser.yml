@@ -12,7 +12,6 @@ builds:
 archives:
   - id: default
     name_template: "solana-onchain-mcp-{{ .Os }}-{{ .Arch }}"
-    format: tar.gz
     files:
       - none*  # only include the binary
 

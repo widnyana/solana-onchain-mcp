@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: "Create as draft release"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
