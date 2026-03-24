@@ -486,24 +486,22 @@ impl SolanaRpcClient {
     // ==================== WRITE TOOLS ====================
 
     pub async fn get_latest_blockhash(&self) -> Result<Hash> {
-        let client = self.clone();
-        spawn_blocking(move || client.client.get_latest_blockhash())
+        let client = self.client.clone();
+        spawn_blocking(move || client.get_latest_blockhash().map_err(SolanaMcpError::from))
             .await
             .map_err(|_| SolanaMcpError::TaskJoinError)?
-            .map_err(SolanaMcpError::from)
     }
 
     pub async fn send_transaction(&self, tx: &Transaction) -> Result<Signature> {
-        let client = self.clone();
+        let client = self.client.clone();
         let tx = tx.clone();
         spawn_blocking(move || {
             client
-                .client
                 .send_transaction_with_config(&tx, RpcSendTransactionConfig::default())
+                .map_err(SolanaMcpError::from)
         })
         .await
         .map_err(|_| SolanaMcpError::TaskJoinError)?
-        .map_err(SolanaMcpError::from)
     }
 
     pub async fn confirm_transaction(&self, sig: &Signature) -> Result<bool> {
