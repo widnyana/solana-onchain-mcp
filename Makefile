@@ -13,3 +13,7 @@ fmt-check:
 fmt-quick:
 	@echo "Quick formatting with nightly..."
 	@rustup run nightly cargo fmt --all
+
+clippy:
+	@echo "Running clippy..."
+	@cargo clippy --all-targets --all-features -- -D warnings
