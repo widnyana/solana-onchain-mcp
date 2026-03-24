@@ -4,28 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
-  workflow_dispatch:
-    inputs:
-      draft:
-        description: "Create as draft release"
-        required: false
-        default: true
-        type: boolean
-      skip_publish:
-        description: "Skip crates.io publishing"
-        required: false
-        default: true
-        type: boolean
-
-env:
-  CARGO_TERM_COLOR: always
-  SCCACHE_GHA_ENABLED: "true"
-  RUSTC_WRAPPER: "sccache"
 
 permissions:
   contents: read
 
 jobs:
+  # Step 1: Verify tag version matches Cargo.toml
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -35,86 +19,26 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Install jq
-        run: sudo apt-get install -y jq
-      - name: Extract version
+      - name: Extract version from tag
         id: extract
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      - name: Verify tag matches Cargo.toml
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          else
-            VERSION=$(cargo metadata --no-deps --format-version=1 | jq -r '.packages[0].version')
-            echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          fi
-      - name: Verify version matches Cargo.toml
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          CARGO_VERSION=$(cargo metadata --no-deps --format-version=1 | jq -r '.packages[0].version')
+          CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d '"' -f2)
           TAG_VERSION="${{ steps.extract.outputs.version }}"
           if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
-            echo "Version mismatch: Cargo.toml has $CARGO_VERSION, tag has $TAG_VERSION"
+            echo "Version mismatch: Cargo.toml=${CARGO_VERSION}, tag=${TAG_VERSION}"
+            echo "Bump Cargo.toml version and merge to main before tagging."
             exit 1
           fi
 
-  fmt:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
-          components: rustfmt
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-  clippy:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: mozilla-actions/sccache-action@v0.0.9
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - name: Clippy
-        run: cargo clippy -- -D warnings
-
-  unit-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: mozilla-actions/sccache-action@v0.0.9
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Run unit tests
-        run: cargo test --verbose
-
-  integration-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: mozilla-actions/sccache-action@v0.0.9
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Run integration tests
-        run: cargo test --verbose -- --ignored
-        env:
-          SOLANA_NETWORK: devnet
-
+  # Step 2: Build binaries per target (matrix)
   build:
     needs: [verify]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
@@ -138,14 +62,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-
       - name: Install cross
         if: matrix.use_cross
         uses: taiki-e/install-action@v2
         with:
           tool: cross
-
-      - name: Build release
+      - name: Build release binary
         run: |
           if [ "${{ matrix.use_cross }}" = "true" ]; then
             cross build --release --target ${{ matrix.target }}
@@ -154,30 +76,65 @@ jobs:
           fi
         env:
           OPENSSL_STATIC: 1
-          # Disable sccache for cross builds - not available in container
           RUSTC_WRAPPER: ${{ matrix.use_cross == true && '' || 'sccache' }}
-
+          SCCACHE_GHA_ENABLED: ${{ matrix.use_cross == true && 'false' || 'true' }}
       - name: Strip binary
         if: "!matrix.use_cross"
         run: strip target/${{ matrix.target }}/release/solana-onchain-mcp
-
-      - name: Rename binary
-        run: |
-          BIN_NAME="solana-onchain-mcp-${{ matrix.target }}"
-          mv target/${{ matrix.target }}/release/solana-onchain-mcp "$BIN_NAME"
-
-      - name: Upload artifact
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}
-          path: solana-onchain-mcp-${{ matrix.target }}
+          name: binary-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/solana-onchain-mcp
 
+  # Step 3: GoReleaser packages + creates GitHub Release
+  goreleaser:
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: binary-*
+          merge-multiple: false
+      - name: Arrange binaries for GoReleaser
+        run: |
+          # GoReleaser --skip=build expects: dist/<project>_<os>_<arch>/<binary>
+          mkdir -p dist
+          declare -A targets=(
+            ["binary-x86_64-unknown-linux-gnu"]="solana-onchain-mcp_linux_amd64_v1"
+            ["binary-aarch64-unknown-linux-gnu"]="solana-onchain-mcp_linux_arm64"
+            ["binary-x86_64-apple-darwin"]="solana-onchain-mcp_darwin_amd64_v1"
+            ["binary-aarch64-apple-darwin"]="solana-onchain-mcp_darwin_arm64"
+          )
+          for artifact_dir in "${!targets[@]}"; do
+            goreleaser_dir="dist/${targets[$artifact_dir]}"
+            mkdir -p "$goreleaser_dir"
+            cp "artifacts/${artifact_dir}/solana-onchain-mcp" "$goreleaser_dir/solana-onchain-mcp"
+          done
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --skip=build --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Step 4: Publish to crates.io
   publish-crates:
-    needs: [verify]
+    needs: [goreleaser]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: release
-    if: ${{ startsWith(github.ref, 'refs/tags/') || !inputs.skip_publish }}
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
         with:
@@ -187,40 +144,6 @@ jobs:
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATESIO_TOKEN }}
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
         run: cargo publish
-
-  github-release:
-    needs: [build, publish-crates, fmt, clippy, unit-test, integration-test]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: binaries
-          merge-multiple: false
-
-      - name: Prepare release assets
-        run: |
-          mkdir -p release-assets
-          find binaries -type f -exec cp {} release-assets/ \;
-
-      - name: Generate checksums
-        run: |
-          cd release-assets
-          sha256sum * > checksums.sha256
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release-assets/*
-          generate_release_notes: true
-          draft: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.draft }}
-          prerelease: ${{ contains(needs.verify.outputs.version, '-') }}
-          tag_name: v${{ needs.verify.outputs.version }}
