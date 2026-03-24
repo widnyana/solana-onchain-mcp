@@ -53,7 +53,7 @@ jobs:
     needs: [verify]
     if: always() && (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -77,15 +77,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - name: Install musl tools (x86_64)
-        if: matrix.runner == 'ubuntu-latest' && matrix.cc == ''
-        run: sudo apt-get install -y musl-tools
+      - name: Install musl tools
+        if: matrix.runner == 'ubuntu-latest'
+        run: sudo apt-get install -y musl-tools binutils-aarch64-linux-gnu
       - name: Install zig for aarch64 musl cross-compilation
         if: matrix.cc != ''
-        uses: goto-bus-stop/setup-zig@v2
+        uses: mlugg/setup-zig@v2.2.1
       - name: Install cargo-zigbuild
         if: matrix.cc != ''
-        run: cargo install cargo-zigbuild --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
       - name: Build release binary (native musl)
         if: matrix.cc == ''
         run: cargo build --release --target ${{ matrix.target }}
