@@ -62,7 +62,7 @@ jobs:
             runner: ubuntu-latest
           - target: aarch64-unknown-linux-musl
             runner: ubuntu-latest
-            cc: aarch64-linux-musl-gcc
+            cc: aarch64-linux-gnu-gcc
           - target: x86_64-apple-darwin
             runner: macos-15-intel
           - target: aarch64-apple-darwin
