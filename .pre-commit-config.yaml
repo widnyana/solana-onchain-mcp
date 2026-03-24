@@ -1,4 +1,10 @@
 repos:
+  - repo: https://github.com/AndrejOrsula/pre-commit-cargo
+    rev: 0.5.0
+    hooks:
+      - id: cargo-check
+        args: ["--all-targets", "--all-features"]
+
   - repo: local
     hooks:
       - id: make-fmt
@@ -8,8 +14,9 @@ repos:
         files: \.(rs)$
         pass_filenames: false
 
-  - repo: https://github.com/AndrejOrsula/pre-commit-cargo
-    rev: 0.5.0
-    hooks:
-      - id: cargo-check
-        args: ["--all-targets", "--all-features"]
+      - id: make-clippy
+        name: Run Makefile clippy
+        entry: make clippy
+        language: system
+        files: \.(rs)$
+        pass_filenames: false
