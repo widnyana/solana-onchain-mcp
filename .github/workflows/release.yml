@@ -14,12 +14,21 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  actions: read
+  attestations: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 
 jobs:
   # Step 1: Verify tag version matches Cargo.toml
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    if: startsWith(github.ref, 'refs/tags/v')
     outputs:
       version: ${{ steps.extract.outputs.version }}
     steps:
@@ -42,16 +51,18 @@ jobs:
   # Step 2: Build binaries per target (matrix)
   build:
     needs: [verify]
+    if: always() && (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             runner: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
             runner: ubuntu-latest
+            cc: aarch64-linux-musl-gcc
           - target: x86_64-apple-darwin
             runner: macos-15-intel
           - target: aarch64-apple-darwin
@@ -63,24 +74,29 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - name: Install cross
-        if: runner == 'ubuntu-latest'
-        uses: taiki-e/install-action@v2
+      - uses: Swatinem/rust-cache@v2
         with:
-          tool: cross
-      - name: Build release binary
+          key: ${{ matrix.target }}
+      - name: Install musl tools
+        if: matrix.runner == 'ubuntu-latest'
+        run: sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu
+      - name: Configure aarch64 musl linker
+        if: matrix.cc != ''
         run: |
-          if [ "${{ runner }}" = "ubuntu-latest" ]; then
-            cross build --release --target ${{ matrix.target }}
-          else
-            cargo build --release --target ${{ matrix.target }}
-          fi
+          mkdir -p ~/.cargo
+          printf '\n[target.aarch64-unknown-linux-musl]\nlinker = "aarch64-linux-gnu-gcc"\n' >> ~/.cargo/config.toml
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
         env:
-          OPENSSL_STATIC: 1
+          CC_aarch64_unknown_linux_musl: ${{ matrix.cc }}
           RUSTC_WRAPPER: ""
       - name: Strip binary
-        if: runner != 'ubuntu-latest'
-        run: strip target/${{ matrix.target }}/release/solana-onchain-mcp
+        run: |
+          STRIP="strip"
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
+            STRIP="aarch64-linux-gnu-strip"
+          fi
+          $STRIP target/${{ matrix.target }}/release/solana-onchain-mcp
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
@@ -90,6 +106,7 @@ jobs:
   # Step 3: GoReleaser packages + creates GitHub Release
   goreleaser:
     needs: [verify, build]
+    if: always() && needs.build.result == 'success' && (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -110,8 +127,8 @@ jobs:
           # GoReleaser --skip=build expects: dist/<project>_<os>_<arch>/<binary>
           mkdir -p dist
           declare -A targets=(
-            ["binary-x86_64-unknown-linux-gnu"]="solana-onchain-mcp_linux_amd64_v1"
-            ["binary-aarch64-unknown-linux-gnu"]="solana-onchain-mcp_linux_arm64"
+            ["binary-x86_64-unknown-linux-musl"]="solana-onchain-mcp_linux_amd64_v1"
+            ["binary-aarch64-unknown-linux-musl"]="solana-onchain-mcp_linux_arm64"
             ["binary-x86_64-apple-darwin"]="solana-onchain-mcp_darwin_amd64_v1"
             ["binary-aarch64-apple-darwin"]="solana-onchain-mcp_darwin_arm64"
           )
@@ -124,7 +141,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --skip=build --clean
+          args: release --skip=build ${{ github.event.inputs.draft == 'true' && '--draft' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
