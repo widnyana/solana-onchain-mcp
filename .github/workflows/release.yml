@@ -111,8 +111,8 @@ jobs:
           name: binary-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/solana-onchain-mcp
 
-  # Step 3: GoReleaser packages + creates GitHub Release
-  goreleaser:
+  # Step 3: Package binaries and create GitHub Release
+  package:
     needs: [verify, build]
     if: always() && needs.build.result == 'success' && (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     runs-on: ubuntu-latest
@@ -130,33 +130,48 @@ jobs:
           path: artifacts
           pattern: binary-*
           merge-multiple: false
-      - name: Arrange binaries in prebuilt/ directory structure for goreleaser
+      - name: Package binaries into tar.gz archives
         run: |
-          # GoReleaser prebuilt.path template: prebuilt/{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Amd64 }}_{{ . }}{{ end }}/{{ .ProjectName }}
+          # Create output directory
+          mkdir -p dist
+
+          # Package each binary
           declare -A targets=(
-            ["binary-x86_64-unknown-linux-musl"]="prebuilt/solana-onchain-mcp_linux_amd64_v1"
-            ["binary-aarch64-unknown-linux-musl"]="prebuilt/solana-onchain-mcp_linux_arm64"
-            ["binary-x86_64-apple-darwin"]="prebuilt/solana-onchain-mcp_darwin_amd64_v1"
-            ["binary-aarch64-apple-darwin"]="prebuilt/solana-onchain-mcp_darwin_arm64"
+            ["binary-x86_64-unknown-linux-musl"]="linux-amd64"
+            ["binary-aarch64-unknown-linux-musl"]="linux-arm64"
+            ["binary-x86_64-apple-darwin"]="darwin-amd64"
+            ["binary-aarch64-apple-darwin"]="darwin-arm64"
           )
+
           for artifact_dir in "${!targets[@]}"; do
-            target_dir="${targets[$artifact_dir]}"
-            mkdir -p "$target_dir"
-            cp "artifacts/${artifact_dir}/solana-onchain-mcp" "$target_dir/solana-onchain-mcp"
+            target="${targets[$artifact_dir]}"
+            archive_name="solana-onchain-mcp-${target}.tar.gz"
+            echo "Packaging $archive_name from $artifact_dir"
+            tar -czf "dist/${archive_name}" -C "artifacts/${artifact_dir}" solana-onchain-mcp
           done
-      - name: Clean dist directory before GoReleaser
-        run: rm -rf dist
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release ${{ github.event.inputs.draft == 'true' && '--draft' || '' }}
+
+          # Generate checksums
+          cd dist
+          sha256sum *.tar.gz > checksums.txt
+          cd ..
+      - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRAFT: ${{ github.event.inputs.draft == 'true' && '--draft' || '' }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+
+          # Create release with assets
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "Release $TAG" \
+            $DRAFT \
+            dist/*.tar.gz \
+            dist/checksums.txt
 
   # Step 4: Publish to crates.io
   publish-crates:
-    needs: [goreleaser]
+    needs: [package]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: release
