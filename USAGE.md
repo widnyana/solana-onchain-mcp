@@ -1,5 +1,44 @@
 # Usage Guide
 
+## Installation
+
+### Method 1: Prebuilt Binary (Recommended)
+
+```bash
+curl -fsSL https://github.com/widnyana/solana-onchain-mcp/releases/latest/download/install.sh | bash
+```
+
+**Advantages:**
+- Fast: No compilation required
+- Cross-platform: Linux, macOS (ARM64 and AMD64)
+- Stable: Uses official release binaries
+- Small: ~3MB download
+
+**Manual Download:**
+Visit [Releases](https://github.com/widnyana/solana-onchain-mcp/releases) and download:
+- `solana-onchain-mcp-linux-amd64.tar.gz`
+- `solana-onchain-mcp-linux-arm64.tar.gz`
+- `solana-onchain-mcp-darwin-amd64.tar.gz`
+- `solana-onchain-mcp-darwin-arm64.tar.gz`
+
+### Method 2: Install from crates.io
+
+```bash
+cargo install solana-onchain-mcp
+```
+
+### Method 3: Build from Source
+
+```bash
+cargo install --git https://github.com/widnyana/solana-onchain-mcp
+```
+
+**Requirements:**
+- Rust 1.85+ (Edition 2024)
+- OpenSSL development headers
+
+**Note:** Compilation may take 5-10 minutes.
+
 ## Configuration
 
 ### Environment Variables
@@ -146,6 +185,14 @@ Current slot/block height.
 |-----------|------|----------|-------------|
 | `commitment` | string | No | Commitment level |
 
+#### get_server_info
+
+Server configuration and network information.
+
+No parameters required.
+
+Returns: network type, RPC URL, keypair status, accept_risk setting
+
 #### simulate_transaction
 
 Test transaction without signing.
@@ -218,6 +265,42 @@ Create token account for a mint.
 
 Costs rent-exempt balance in SOL.
 
+#### approve_token
+
+Approve a delegate to spend tokens from your account.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `token_account` | string | Yes | Token account address |
+| `delegate` | string | Yes | Delegate address to approve |
+| `amount` | f64 | Yes | Amount in UI units (e.g., 1.5) |
+| `decimals` | u8 | Yes | Token decimals (6 for USDC) |
+| `owner` | string | No | Owner (defaults to your wallet) |
+
+Returns: transaction signature
+
+#### revoke_token
+
+Revoke token delegate authority.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `token_account` | string | Yes | Token account address |
+| `owner` | string | No | Owner (defaults to your wallet) |
+
+Returns: transaction signature
+
+#### close_token_account
+
+Close an unused token account to reclaim rent.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `token_account` | string | Yes | Token account address |
+| `owner` | string | No | Owner (defaults to your wallet) |
+
+Returns: transaction signature and recovered lamports
+
 ## Commitment Levels
 
 | Level | Latency | Description |
@@ -242,17 +325,77 @@ Devnet/testnet don't require this.
 
 ### HTTP Mode
 
-```bash
-# Read-only (keypair disabled)
-solana-onchain-mcp --http --port 3000
+HTTP mode allows remote connections to the MCP server via SSE (Server-Sent Events).
 
-# With keypair (localhost only)
-solana-onchain-mcp --http --http-allow-keypair --accept-risk --host 127.0.0.1
+**Use Cases:**
+- Running MCP server on a separate machine
+- Sharing MCP server across multiple AI clients
+- Integrating with web-based AI interfaces
+
+**Read-Only Mode (Default):**
+```bash
+solana-onchain-mcp --http --port 3000
 ```
 
-`--http-allow-keypair` requires:
-- `--accept-risk`
-- `--host 127.0.0.1` (localhost only)
+**With Keypair (Localhost Only):**
+```bash
+solana-onchain-mcp --http --http-allow-keypair --accept-risk --host 127.0.0.1 --port 3000
+```
+
+**Security Requirements:**
+- `--http-allow-keypair` requires:
+  - `--accept-risk` flag
+  - `--host 127.0.0.1` (localhost only, rejected for other hosts)
+- By default, HTTP mode runs read-only (keypair disabled)
+
+**Example for AI Integration:**
+```json
+{
+  "mcpServers": {
+    "solana": {
+      "url": "http://localhost:3000/sse",
+      "headers": {
+        "Accept": "text/event-stream"
+      }
+    }
+  }
+}
+```
+
+### Mainnet Usage
+
+⚠️ **CRITICAL:** Mainnet operations involve real, irreversible transactions.
+
+**Prerequisites:**
+1. Test everything on devnet first
+2. Use a dedicated wallet with minimal funds
+3. Verify all transaction parameters
+4. Understand gas fees and rent costs
+
+**Enabling Mainnet:**
+```bash
+# Environment variable
+export SOLANA_NETWORK=mainnet
+export SOLANA_ACCEPT_RISK=true
+export SOLANA_KEYPAIR_PATH=/path/to/keypair.json
+
+# OR CLI flags
+SOLANA_NETWORK=mainnet solana-onchain-mcp --accept-risk
+```
+
+**What Gets Warned:**
+- When `SOLANA_ACCEPT_RISK=true` is set
+- When network type is mainnet or custom URL
+- When `--accept-risk` CLI flag is used
+- Before server starts on mainnet
+- When keypair loads on mainnet
+
+**Best Practices:**
+- Never use your main wallet
+- Start with small test transactions
+- Monitor logs for all warnings
+- Keep backups of important keypairs
+- Consider using a hardware wallet for large amounts
 
 ### Keypair Safety
 

@@ -1,5 +1,7 @@
 use std::{env, path::PathBuf};
 
+use tracing::warn;
+
 use crate::error::{Result, SolanaMcpError};
 
 const MAINNET_URL: &str = "https://api.mainnet-beta.solana.com";
@@ -41,6 +43,16 @@ impl Config {
         let keypair_path = env::var("SOLANA_KEYPAIR_PATH").ok().map(PathBuf::from);
 
         let accept_risk = env::var("SOLANA_ACCEPT_RISK").map(|v| v == "true").unwrap_or(false);
+        if accept_risk {
+            warn!("SOLANA_ACCEPT_RISK=true enables write operations on mainnet/custom networks with real assets.");
+        }
+
+        if matches!(network_type, NetworkType::Mainnet | NetworkType::Custom(_)) {
+            warn!(
+                "Connecting to {:?} network - CAUTION: Transactions involve real assets.",
+                network_type
+            );
+        }
 
         Ok(Self { rpc_url, network_type, keypair_path, accept_risk })
     }

@@ -49,11 +49,15 @@ tests/
 - `get_signature_status` - Transaction confirmation status
 - `get_slot` - Current slot number
 - `simulate_transaction` - Transaction simulation
+- `get_server_info` - Server configuration and network info
 
 ### Write Tools (require keypair)
 - `transfer_sol` - Transfer SOL to recipient
 - `transfer_token` - Transfer SPL tokens
 - `create_associated_token_account` - Create ATA for token mint
+- `approve_token` - Approve delegate to spend tokens
+- `revoke_token` - Revoke token delegate authority
+- `close_token_account` - Close unused token account
 
 ### Inspector Tools
 - `inspect_transaction_raw` - Raw transaction analysis

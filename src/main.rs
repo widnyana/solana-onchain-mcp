@@ -152,10 +152,17 @@ async fn main() -> SdkResult<()> {
     if args.accept_risk {
         config.accept_risk = true;
     }
+    if args.accept_risk {
+        warn!("CLI flag --accept-risk is set. Write operations enabled on mainnet/custom networks.");
+    }
 
     if let Err(e) = validate_http_security(&args, &mut config) {
         error!(error = %e, "Security validation failed");
         std::process::exit(1);
+    }
+
+    if config.is_mainnet_or_custom() {
+        warn!("SERVER STARTING ON MAINNET/CUSTOM NETWORK - Write operations will use real assets.");
     }
 
     info!(

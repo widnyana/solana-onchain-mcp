@@ -2,14 +2,33 @@
 
 [![Crates.io](https://img.shields.io/crates/v/solana-onchain-mcp)](https://crates.io/crates/solana-onchain-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Changelog](https://img.shields.io/badge/changelog-v0.2.0-blue)](CHANGELOG.md)
 
 MCP server for Solana blockchain operations.
 
 ## Install
 
+### Method 1: Prebuilt Binary (Recommended)
+
+```bash
+curl -fsSL https://github.com/widnyana/solana-onchain-mcp/releases/latest/download/install.sh | bash
+```
+
+This downloads the latest release for your platform and installs to `~/.local/bin`.
+
+### Method 2: Install from crates.io
+
+```bash
+cargo install solana-onchain-mcp
+```
+
+### Method 3: Build from Source
+
 ```bash
 cargo install --git https://github.com/widnyana/solana-onchain-mcp
 ```
+
+Requires Rust 1.85+.
 
 ## Setup
 
@@ -75,9 +94,9 @@ cargo install --git https://github.com/widnyana/solana-onchain-mcp
 }
 ```
 
-## Tools (15)
+## Tools (19)
 
-### Read (no keypair)
+### Read (no keypair required)
 
 | Tool | Description |
 |------|-------------|
@@ -93,6 +112,7 @@ cargo install --git https://github.com/widnyana/solana-onchain-mcp
 | `simulate_transaction` | Test transaction without signing |
 | `inspect_transaction_raw` | Raw transaction with program names |
 | `inspect_transaction_humanized` | Human-readable transaction summary |
+| `get_server_info` | Server configuration and network info |
 
 ### Write (requires keypair)
 
@@ -101,6 +121,19 @@ cargo install --git https://github.com/widnyana/solana-onchain-mcp
 | `transfer_sol` | Transfer SOL |
 | `transfer_token` | Transfer SPL tokens |
 | `create_associated_token_account` | Create token account |
+| `approve_token` | Approve token delegate |
+| `revoke_token` | Revoke token delegate |
+| `close_token_account` | Close unused token account |
+
+### Mainnet Usage
+
+⚠️ **WARNING:** Mainnet operations involve real assets. Always:
+1. Test thoroughly on devnet first
+2. Use a dedicated wallet with minimal funds
+3. Verify all transaction parameters
+4. Set `SOLANA_ACCEPT_RISK=true` or use `--accept-risk` flag
+
+See [USAGE.md](USAGE.md#mainnet-usage) for details.
 
 ## Docs
 

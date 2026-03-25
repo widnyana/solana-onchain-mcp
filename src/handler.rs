@@ -42,6 +42,12 @@ impl SolanaMcpHandler {
                                 "Add --accept-risk or SOLANA_ACCEPT_RISK=true to enable write operations on mainnet/custom networks".to_string()
                             ));
                         }
+                        // Warn if keypair loaded on mainnet
+                        if config.is_mainnet_or_custom() {
+                            warn!(
+                                "Write operations enabled on mainnet/custom network - Keypair loaded for transactions."
+                            );
+                        }
                         Some(kp)
                     }
                     Err(e) => {
