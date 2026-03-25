@@ -17,7 +17,7 @@ builds:
       - v1
     prebuilt:
       path: prebuilt/{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Amd64 }}_{{ . }}{{ end }}/{{ .ProjectName }}
-    binary: {{ .ProjectName }}
+    binary: solana-onchain-mcp
 
 archives:
   - id: default

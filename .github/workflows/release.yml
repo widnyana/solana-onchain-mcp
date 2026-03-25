@@ -144,6 +144,8 @@ jobs:
             mkdir -p "$target_dir"
             cp "artifacts/${artifact_dir}/solana-onchain-mcp" "$target_dir/solana-onchain-mcp"
           done
+      - name: Clean dist directory before GoReleaser
+        run: rm -rf dist
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
