@@ -37,7 +37,7 @@ main() {
 
     # Create temp directory
     download_dir="$(mktemp -d)"
-    trap 'rm -rf "$download_dir"' EXIT
+    trap cleanup EXIT
 
     # Download assets
     echo "Downloading ${asset_name}..."
@@ -59,7 +59,7 @@ main() {
         mkdir -p "$INSTALL_DIR"
     fi
 
-    # Install binary
+    # Install binary (archive extracts directly to the binary file)
     echo "Installing ${BINARY_NAME} to ${INSTALL_DIR}..."
     cp "${download_dir}/${BINARY_NAME}" "$INSTALL_DIR/"
     chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
@@ -75,11 +75,18 @@ main() {
 fetch_latest_tag() {
     local url="https://api.github.com/repos/${REPO}/releases/latest"
     local tag
-    tag="$(curl -fsSL "$url" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1')"
+    tag="$(curl -fsSL "$url" | grep -o '"tag_name":[[:space:]]*"[^"]*"' | cut -d'"' -f4)"
     if [ -z "$tag" ]; then
         die "Failed to fetch latest release tag"
     fi
     echo "$tag"
+}
+
+# Cleanup function
+cleanup() {
+    if [ -n "${download_dir:-}" ] && [ -d "$download_dir" ]; then
+        rm -rf "$download_dir"
+    fi
 }
 
 verify_checksum() {
