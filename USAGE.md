@@ -5,7 +5,7 @@
 ### Method 1: Prebuilt Binary (Recommended)
 
 ```bash
-curl -fsSL https://github.com/widnyana/solana-onchain-mcp/releases/latest/download/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/widnyana/solana-onchain-mcp/refs/heads/main/install.sh | bash
 ```
 
 **Advantages:**
@@ -364,7 +364,7 @@ solana-onchain-mcp --http --http-allow-keypair --accept-risk --host 127.0.0.1 --
 
 ### Mainnet Usage
 
-⚠️ **CRITICAL:** Mainnet operations involve real, irreversible transactions.
+⚠️ **WARNING:** Mainnet operations involve real, irreversible transactions.
 
 **Prerequisites:**
 1. Test everything on devnet first
