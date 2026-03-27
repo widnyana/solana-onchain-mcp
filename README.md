@@ -10,8 +10,10 @@ MCP server for Solana blockchain operations.
 
 ### Method 1: Prebuilt Binary (Recommended)
 
+**Warning:** make sure you understand what the bash script doing before executing it
+
 ```bash
-curl -fsSL https://github.com/widnyana/solana-onchain-mcp/releases/latest/download/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/widnyana/solana-onchain-mcp/refs/heads/main/install.sh | bash
 ```
 
 This downloads the latest release for your platform and installs to `~/.local/bin`.
@@ -133,7 +135,7 @@ Requires Rust 1.85+.
 3. Verify all transaction parameters
 4. Set `SOLANA_ACCEPT_RISK=true` or use `--accept-risk` flag
 
-See [USAGE.md](USAGE.md#mainnet-usage) for details.
+See [Mainnet Usage](USAGE.md#mainnet-usage) for details.
 
 ## Docs
 
