@@ -85,8 +85,6 @@ struct QueryTransactionsResult {
     matched: usize,
     /// True if the scan exhausted the time window or received fewer than a full page.
     is_complete: bool,
-    /// Last signature seen — use as cursor for resuming pagination.
-    last_cursor: Option<String>,
     result_summary: ResultSummary,
     transactions: Vec<serde_json::Value>,
     suggested_actions: Vec<String>,
@@ -330,9 +328,6 @@ impl QueryTransactionsTool {
             pages_scanned += 1;
         }
 
-        // Compute last_cursor once from the final collected entry (O(1) clone instead of O(N))
-        let last_cursor = signatures.last().map(|e| e.signature.clone());
-
         let total_scanned = signatures.len();
 
         // ---- Phase 2: fetch, humanize, filter, project ----
@@ -420,7 +415,6 @@ impl QueryTransactionsTool {
             total_scanned,
             matched,
             is_complete,
-            last_cursor,
             result_summary,
             transactions,
             suggested_actions,
