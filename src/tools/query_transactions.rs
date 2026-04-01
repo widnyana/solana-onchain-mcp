@@ -329,13 +329,15 @@ impl QueryTransactionsTool {
         }
 
         let total_scanned = signatures.len();
+        // Count failures from the raw scanned set, independent of include_failed gate,
+        // so that R-D suggestion fires correctly under default (include_failed=false).
+        let failed_count = signatures.iter().filter(|e| !e.is_success).count();
 
         // ---- Phase 2: fetch, humanize, filter, project ----
         let mut matched: usize = 0;
         let mut transactions: Vec<serde_json::Value> = Vec::new();
         let mut type_counts: HashMap<String, usize> = HashMap::new();
         let mut total_fees: u64 = 0;
-        let mut failed_count: usize = 0;
 
         for entry in &signatures {
             // Apply include_failed gate before RPC fetch
@@ -363,10 +365,6 @@ impl QueryTransactionsTool {
 
             let fee = humanized.get("fee").and_then(|f| f.as_u64()).unwrap_or(0);
             total_fees = total_fees.saturating_add(fee);
-
-            if !entry.is_success {
-                failed_count += 1;
-            }
 
             let tx_value = if compact_flag {
                 let summary = extract_summary(&humanized);
