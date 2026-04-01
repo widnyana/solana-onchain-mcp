@@ -339,3 +339,254 @@ mod decode_instruction_tests {
         assert!(result.is_ok() || result.is_err());
     }
 }
+
+// =============================================================================
+// humanize_transaction_to_json output-contract tests
+// =============================================================================
+
+mod humanize_transaction_to_json_tests {
+    use serde_json::json;
+    use solana_onchain_mcp::tools::tx_inspector::humanize_transaction_to_json;
+
+    #[test]
+    fn test_empty_input_returns_safe_defaults() {
+        let result = humanize_transaction_to_json(&json!({}));
+        assert!(!result.is_null());
+        assert_eq!(result["signature"].as_str(), Some("unknown"));
+        assert_eq!(result["fee"].as_u64(), Some(0));
+    }
+
+    #[test]
+    fn test_valid_input_has_required_keys() {
+        let tx = json!({
+            "slot": 12345,
+            "blockTime": 1700000000i64,
+            "meta": {"fee": 5000, "err": null},
+            "transaction": {
+                "signatures": ["4rFeTz3SUfDZbNKaMYQ6tD5T7YinxhZpGpSfVKeMBrMV12345"],
+                "message": {
+                    "accountKeys": [
+                        {"pubkey": "11111111111111111111111111111111", "signer": true, "writable": true}
+                    ],
+                    "instructions": []
+                }
+            }
+        });
+        let result = humanize_transaction_to_json(&tx);
+        assert!(result.is_object());
+        assert!(result.get("signature").is_some());
+        assert!(result.get("status").is_some());
+        assert!(result.get("fee").is_some());
+        assert!(result.get("instructions").is_some());
+        assert!(result.get("accounts").is_some());
+    }
+
+    #[test]
+    fn test_failed_tx_has_success_false() {
+        let tx = json!({
+            "meta": {
+                "err": {"InstructionError": [0, "InsufficientFundsForRent"]},
+                "fee": 5000
+            },
+            "transaction": {
+                "signatures": ["FAKESIG123"],
+                "message": {
+                    "accountKeys": [],
+                    "instructions": []
+                }
+            }
+        });
+        let result = humanize_transaction_to_json(&tx);
+        assert_eq!(result["status"]["success"].as_bool(), Some(false));
+    }
+
+    #[test]
+    fn test_no_panic_on_null() {
+        // Must not panic
+        let result = humanize_transaction_to_json(&json!(null));
+        // Result is either null or has safe defaults - we just verify no panic
+        let _ = result;
+    }
+}
+
+// =============================================================================
+// classify_tx_type tests
+// =============================================================================
+
+mod classify_tx_type_tests {
+    use serde_json::json;
+    use solana_onchain_mcp::tools::tx_inspector::classify_tx_type;
+
+    fn make_tx(instructions: serde_json::Value) -> serde_json::Value {
+        json!({ "instructions": instructions })
+    }
+
+    #[test]
+    fn test_jupiter_instruction_classifies_as_swap() {
+        let tx = make_tx(json!([{
+            "program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "program_name": "Jupiter Aggregator",
+            "instruction_type": "JupiterInstruction"
+        }]));
+        assert_eq!(classify_tx_type(&tx), "swap");
+    }
+
+    #[test]
+    fn test_raydium_instruction_classifies_as_swap() {
+        let tx = make_tx(json!([{
+            "program": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+            "program_name": "Raydium DEX",
+            "instruction_type": "SwapBaseIn"
+        }]));
+        assert_eq!(classify_tx_type(&tx), "swap");
+    }
+
+    #[test]
+    fn test_system_transfer_classifies_as_transfer() {
+        let tx = make_tx(json!([{
+            "program": "11111111111111111111111111111111",
+            "program_name": "System Program",
+            "instruction_type": "transfer"
+        }]));
+        assert_eq!(classify_tx_type(&tx), "transfer");
+    }
+
+    #[test]
+    fn test_token_mint_to_classifies_as_mint() {
+        let tx = make_tx(json!([{
+            "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "program_name": "Token Program",
+            "instruction_type": "mintTo"
+        }]));
+        assert_eq!(classify_tx_type(&tx), "mint");
+    }
+
+    #[test]
+    fn test_token_burn_classifies_as_burn() {
+        let tx = make_tx(json!([{
+            "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "program_name": "Token Program",
+            "instruction_type": "burn"
+        }]));
+        assert_eq!(classify_tx_type(&tx), "burn");
+    }
+
+    #[test]
+    fn test_unknown_program_instructions_classify_as_unknown() {
+        let tx = make_tx(json!([{
+            "program": "UnknownProg1111111111111111111111111111111",
+            "program_name": null,
+            "instruction_type": null
+        }]));
+        assert_eq!(classify_tx_type(&tx), "unknown");
+    }
+
+    #[test]
+    fn test_mixed_ata_create_and_swap_classifies_as_swap() {
+        // DeFi wins over Core
+        let tx = make_tx(json!([
+            {
+                "program": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+                "program_name": "Associated Token Account",
+                "instruction_type": "create"
+            },
+            {
+                "program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+                "program_name": "Jupiter Aggregator",
+                "instruction_type": "JupiterInstruction"
+            }
+        ]));
+        assert_eq!(classify_tx_type(&tx), "swap");
+    }
+
+    #[test]
+    fn test_empty_instructions_classifies_as_unknown() {
+        let tx = make_tx(json!([]));
+        assert_eq!(classify_tx_type(&tx), "unknown");
+    }
+
+    #[test]
+    fn test_no_instructions_key_classifies_as_unknown() {
+        let tx = json!({});
+        assert_eq!(classify_tx_type(&tx), "unknown");
+    }
+
+    // P3-B: NFT branch boundary — no NFT programs are currently in PROGRAM_REGISTRY,
+    // so any pubkey that identifies as NFT in reality but is unregistered falls through
+    // to "unknown". This test pins the boundary: Metaplex Metadata is the canonical NFT
+    // program but is not registered, so it classifies as "unknown".
+    #[test]
+    fn test_unregistered_nft_program_classifies_as_unknown() {
+        let tx = make_tx(json!([{
+            "program": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
+            "program_name": "Metaplex Token Metadata",
+            "instruction_type": "MintNewEditionFromMasterEditionViaToken"
+        }]));
+        // Metaplex is not in PROGRAM_REGISTRY → falls through to instruction_type check.
+        // "MintNewEditionFromMasterEditionViaToken" contains "mint" but not "mintto",
+        // and does not contain "burn" or "transfer", so result is "unknown".
+        assert_eq!(classify_tx_type(&tx), "unknown");
+    }
+
+    #[test]
+    fn test_unknown_program_with_mintto_instruction_type_classifies_as_mint() {
+        let tx = make_tx(json!([{
+            "program": "SomeProg111111111111111111111111111111111111",
+            "instruction_type": "mintTo"
+        }]));
+        assert_eq!(classify_tx_type(&tx), "mint");
+    }
+}
+
+// =============================================================================
+// format_instruction_error_with_program tests
+// =============================================================================
+
+mod format_instruction_error_with_program_tests {
+    use serde_json::json;
+    use solana_onchain_mcp::tools::tx_inspector::format_instruction_error_with_program;
+
+    const TOKEN_PROGRAM: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+    const SYSTEM_PROGRAM: &str = "11111111111111111111111111111111";
+
+    #[test]
+    fn custom_error_code_with_known_program_is_interpreted() {
+        // Token error code 0 = "Not enough balance"
+        let err = json!({ "InstructionError": [0, { "Custom": 0 }] });
+        let result = format_instruction_error_with_program(&err, TOKEN_PROGRAM);
+        assert!(result.contains("Instruction 0 failed"), "result: {result}");
+        assert!(result.contains("Not enough balance"), "result: {result}");
+    }
+
+    #[test]
+    fn custom_error_code_with_system_program_is_interpreted() {
+        // System error code 1 = "Account does not have enough SOL"
+        let err = json!({ "InstructionError": [2, { "Custom": 1 }] });
+        let result = format_instruction_error_with_program(&err, SYSTEM_PROGRAM);
+        assert!(result.contains("Instruction 2 failed"), "result: {result}");
+        assert!(result.contains("enough SOL"), "result: {result}");
+    }
+
+    #[test]
+    fn custom_error_code_with_unknown_program_uses_generic_message() {
+        let err = json!({ "InstructionError": [1, { "Custom": 42 }] });
+        let result = format_instruction_error_with_program(&err, "UnknownProg1111111111111111111111111111111111");
+        assert!(result.contains("Instruction 1 failed"), "result: {result}");
+        assert!(result.contains("42"), "result: {result}");
+    }
+
+    #[test]
+    fn non_custom_error_type_falls_back_to_string_serialization() {
+        let err = json!({ "InstructionError": [0, "InsufficientFundsForRent"] });
+        let result = format_instruction_error_with_program(&err, TOKEN_PROGRAM);
+        assert!(result.contains("Instruction 0 failed"), "result: {result}");
+        assert!(result.contains("InsufficientFundsForRent"), "result: {result}");
+    }
+
+    #[test]
+    fn non_instruction_error_falls_back_to_json_string() {
+        let err = json!({ "OtherError": "Something" });
+        let result = format_instruction_error_with_program(&err, TOKEN_PROGRAM);
+        assert!(result.contains("OtherError"), "result: {result}");
+    }
+}

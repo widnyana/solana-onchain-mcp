@@ -457,6 +457,11 @@ fn generate_explanation(program_name: &Option<String>, instruction_type: &Option
     Some(action.to_string())
 }
 
+pub fn humanize_transaction_to_json(tx: &serde_json::Value) -> serde_json::Value {
+    let analysis = create_humanized_analysis(tx);
+    serde_json::to_value(analysis).unwrap_or(serde_json::Value::Null)
+}
+
 fn generate_summary(instructions: &[InstructionAnalysis]) -> String {
     if instructions.is_empty() {
         return "Empty transaction".to_string();
