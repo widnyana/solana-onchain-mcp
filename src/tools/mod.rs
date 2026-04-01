@@ -16,6 +16,7 @@ mod get_signatures_for_address;
 mod get_slot;
 mod get_token_accounts_by_owner;
 mod get_transaction;
+mod query_transactions;
 mod revoke_token;
 mod simulate_transaction;
 mod transfer_sol;
@@ -35,13 +36,15 @@ pub use get_signatures_for_address::*;
 pub use get_slot::*;
 pub use get_token_accounts_by_owner::*;
 pub use get_transaction::*;
+pub use query_transactions::QueryTransactionsTool;
 pub use revoke_token::*;
 pub use simulate_transaction::*;
 pub use transfer_sol::*;
 pub use transfer_token::*;
 pub use tx_inspector::{
     InspectTransactionHumanizedTool, InspectTransactionRawTool, ParsedInstructionData, ProgramCategory,
-    decode_instruction, format_instruction_error, get_program_name, identify_program, interpret_error,
+    decode_instruction, format_instruction_error, format_instruction_error_with_program,
+    get_program_name, identify_program, interpret_error,
 };
 
 tool_box!(
@@ -65,7 +68,8 @@ tool_box!(
         TransferSolTool,
         TransferTokenTool,
         InspectTransactionRawTool,
-        InspectTransactionHumanizedTool
+        InspectTransactionHumanizedTool,
+        QueryTransactionsTool
     ]
 );
 

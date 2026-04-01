@@ -191,6 +191,12 @@ impl ServerHandler for SolanaMcpHandler {
             SolanaTools::InspectTransactionHumanizedTool(inspect_humanized_tool) => {
                 inspect_humanized_tool.call_tool(&client).await
             }
+            SolanaTools::QueryTransactionsTool(query_transactions_tool) => {
+                let default_address = self.keypair.as_ref().map(|kp| kp.pubkey.as_str());
+                query_transactions_tool
+                    .call_tool(&client, default_address)
+                    .await
+            }
             SolanaTools::RevokeTokenTool(revoke_token_tool) => {
                 let keypair = self.require_keypair()?;
 
