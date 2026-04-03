@@ -14,11 +14,7 @@ use crate::{
     description = "Get MCP server configuration and capabilities. Returns network info, write capability, and wallet address if configured. Use this to discover what network you're on and whether write operations are available."
 )]
 #[derive(Debug, Default, serde::Deserialize, serde::Serialize, JsonSchema)]
-pub struct GetServerInfoTool {
-    /// No parameters required
-    #[serde(default)]
-    pub _placeholder: Option<()>,
-}
+pub struct GetServerInfoTool {}
 
 impl GetServerInfoTool {
     pub fn call_tool(&self, config: &Config, keypair: Option<&LoadedKeypair>) -> Result<CallToolResult, CallToolError> {
