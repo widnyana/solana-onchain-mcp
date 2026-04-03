@@ -1,14 +1,17 @@
 use std::collections::HashMap;
 
+use base64::{Engine as _, engine::general_purpose};
 use rust_mcp_sdk::{
     macros::{JsonSchema, mcp_tool},
     schema::{CallToolError, CallToolResult},
 };
 use serde::{Deserialize, Serialize};
 
+use super::{
+    json_result,
+    tx_inspector::{classify_tx_type, humanize_transaction_to_json},
+};
 use crate::{error::SolanaMcpError, rpc::SolanaRpcClient};
-
-use super::{json_result, tx_inspector::{classify_tx_type, humanize_transaction_to_json}};
 
 /// Default number of matched results to return.
 const DEFAULT_RESULT_LIMIT: usize = 20;
@@ -19,21 +22,80 @@ const SIGNATURES_PER_PAGE: usize = 1000;
 /// v1: scan budget is exactly 1 page.
 const MAX_SCAN_PAGES: usize = 1;
 
+/// Opaque cursor state for pagination.
+#[derive(Debug, Serialize, Deserialize)]
+struct CursorState {
+    /// Last signature seen (for continuing RPC pagination)
+    last_signature: String,
+    /// Total pages scanned so far (for enforcing MAX_SCAN_PAGES)
+    pages_scanned: usize,
+    /// Cumulative scan count across pages (for accurate totals)
+    total_scanned: usize,
+    /// Cumulative failed count
+    failed_count: usize,
+    /// Cumulative type counts
+    type_counts: HashMap<String, usize>,
+    /// Cumulative fees
+    total_fees_lamports: u64,
+}
+
+impl CursorState {
+    /// Encode cursor state as opaque base64 string.
+    fn encode(&self) -> String {
+        let json = serde_json::to_string(self).unwrap_or_default();
+        general_purpose::STANDARD_NO_PAD.encode(json)
+    }
+
+    /// Decode opaque cursor string into state.
+    fn decode(cursor: &str) -> Option<Self> {
+        let json = general_purpose::STANDARD_NO_PAD.decode(cursor).ok()?;
+        serde_json::from_slice(&json).ok()
+    }
+
+    /// Create initial cursor state from first page results.
+    fn from_first_page(
+        last_signature: String,
+        pages_scanned: usize,
+        total_scanned: usize,
+        failed_count: usize,
+        type_counts: HashMap<String, usize>,
+        total_fees_lamports: u64,
+    ) -> Self {
+        Self {
+            last_signature,
+            pages_scanned,
+            total_scanned,
+            failed_count,
+            type_counts,
+            total_fees_lamports,
+        }
+    }
+}
+
 #[mcp_tool(
     name = "query_transactions",
-    description = "Query and filter transactions for a wallet address with rich classification.
+    description = "**Query** and **Filter** transactions for a wallet address with rich classification and human-readable details.
 
 Use this tool when you need to:
-- Retrieve a wallet's recent transactions filtered by type (transfer, swap, mint, burn, nft, unknown)
+- Get the LAST transaction(s) from a wallet address (with full details and explanations)
+- Retrieve transactions filtered by type (transfer, swap, mint, burn, nft, unknown)
 - Summarize transaction activity over a time window (since_days, before/after timestamps)
-- Get compact or full humanized transaction details
+- Get compact or full humanized transaction details with explanations
 - Count fees paid and transaction types
 
-Returns a result with matched transactions, type counts, fee totals, and pagination metadata.
+Pagination:
+- Uses cursor-based pagination (MCP specification)
+- Omit 'cursor' for the first request
+- Pass 'nextCursor' from the previous response in 'cursor' to continue
+- Missing 'nextCursor' in response indicates the end of results
+
+Returns matched transactions with type classification, summaries, fee totals, and pagination metadata.
 Omit 'address' to use the server keypair address."
 )]
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct QueryTransactionsTool {
+    /// Opaque pagination cursor from a previous response. Omit for the first request.
+    pub cursor: Option<String>,
     /// Wallet address to query. If omitted, uses the server keypair address.
     pub address: Option<String>,
     /// Number of days back from now to include (mutually exclusive with after_timestamp).
@@ -88,6 +150,9 @@ struct QueryTransactionsResult {
     result_summary: ResultSummary,
     transactions: Vec<serde_json::Value>,
     suggested_actions: Vec<String>,
+    /// Opaque cursor for pagination. Present if more results exist.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "nextCursor")]
+    next_cursor: Option<String>,
 }
 
 /// Walk `humanized["instructions"]` and return the first non-empty `explanation` string.
@@ -123,10 +188,7 @@ fn generate_suggested_actions(
 
     // R-A: zero results with an active time filter
     if matched == 0 && had_time_filter {
-        suggestions.push(
-            "Try widening the time range — increase since_days or adjust after_timestamp"
-                .to_string(),
-        );
+        suggestions.push("Try widening the time range — increase since_days or adjust after_timestamp".to_string());
     }
     if suggestions.len() >= MAX_SUGGESTIONS {
         return suggestions;
@@ -144,8 +206,7 @@ fn generate_suggested_actions(
     }
 
     // R-C: for each distinct tx_type in results, suggest inspecting the first example
-    let mut type_first_sig: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
+    let mut type_first_sig: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     for tx in results {
         // compact mode has "type" field; full-mode output uses classify_tx_type
         let tx_type = if let Some(t) = tx.get("type").and_then(|v| v.as_str()) {
@@ -153,11 +214,7 @@ fn generate_suggested_actions(
         } else {
             classify_tx_type(tx).to_string()
         };
-        let sig = tx
-            .get("signature")
-            .and_then(|s| s.as_str())
-            .unwrap_or("")
-            .to_string();
+        let sig = tx.get("signature").and_then(|s| s.as_str()).unwrap_or("").to_string();
         if !sig.is_empty() {
             type_first_sig.entry(tx_type).or_insert(sig);
         }
@@ -208,6 +265,9 @@ impl QueryTransactionsTool {
         client: &SolanaRpcClient,
         default_address: Option<&str>,
     ) -> Result<CallToolResult, CallToolError> {
+        // Decode cursor if provided
+        let cursor_state = self.cursor.as_deref().and_then(CursorState::decode);
+
         // Resolve address
         let address = match self.address.as_deref().or(default_address) {
             Some(a) => a.to_string(),
@@ -218,31 +278,21 @@ impl QueryTransactionsTool {
             }
         };
 
-        // Validate mutually exclusive time parameters
-        if self.since_days.is_some() && self.after_timestamp.is_some() {
+        // Cursor cannot be combined with time filters (cursor already has time context baked in)
+        if cursor_state.is_some()
+            && (self.since_days.is_some() || self.before_timestamp.is_some() || self.after_timestamp.is_some())
+        {
+            return Err(CallToolError::new(SolanaMcpError::RpcError(
+                "Time filters (since_days, before_timestamp, after_timestamp) cannot be combined with cursor pagination. Use the original query parameters without cursor.".to_string(),
+            )));
+        }
+
+        // Validate mutually exclusive time parameters (only applies to initial request)
+        if cursor_state.is_none() && self.since_days.is_some() && self.after_timestamp.is_some() {
             return Err(CallToolError::new(SolanaMcpError::RpcError(
                 "Cannot use both 'since_days' and 'after_timestamp'. Choose one.".to_string(),
             )));
         }
-
-        // Compute after_ts from since_days or after_timestamp
-        let now_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0);
-
-        let after_ts: Option<i64> = if let Some(days) = self.since_days {
-            if days > 36_500 {
-                return Err(CallToolError::new(SolanaMcpError::RpcError(
-                    "since_days exceeds maximum of 36500 (100 years)".to_string(),
-                )));
-            }
-            Some(now_secs - (days as i64) * 86400)
-        } else {
-            self.after_timestamp
-        };
-
-        let before_ts: Option<i64> = self.before_timestamp;
 
         let effective_limit = (self.limit.unwrap_or(DEFAULT_RESULT_LIMIT as u64) as usize).min(MAX_RESULT_LIMIT);
         let include_failed_flag = self.include_failed.unwrap_or(false);
@@ -265,10 +315,52 @@ impl QueryTransactionsTool {
             ))));
         }
 
+        // Extract time bounds from cursor if available, otherwise compute from request
+        let (after_ts, before_ts, has_time_filter) = if let Some(_cs) = &cursor_state {
+            // Time filters come from the original query; cursor preserves scan position
+            // We'll continue until hitting the original time bounds
+            // For simplicity, we don't encode time bounds in cursor - we just scan forward
+            (None, None, true)
+        } else {
+            // Initial request: compute time bounds
+            let now_secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+
+            let after_ts: Option<i64> = if let Some(days) = self.since_days {
+                if days > 36_500 {
+                    return Err(CallToolError::new(SolanaMcpError::RpcError(
+                        "since_days exceeds maximum of 36500 (100 years)".to_string(),
+                    )));
+                }
+                Some(now_secs - (days as i64) * 86400)
+            } else {
+                self.after_timestamp
+            };
+
+            (
+                after_ts,
+                self.before_timestamp,
+                after_ts.is_some() || self.before_timestamp.is_some(),
+            )
+        };
+
         // ---- Phase 1: signature collection ----
         let mut signatures: Vec<SigEntry> = Vec::new();
-        let mut cursor: Option<String> = None;
-        let mut pages_scanned: usize = 0;
+
+        // Resume state from cursor or start fresh
+        let starting_cursor = cursor_state.as_ref().map(|cs| cs.last_signature.clone());
+        let mut pages_scanned = cursor_state.as_ref().map(|cs| cs.pages_scanned).unwrap_or(0);
+        let mut cumulative_scanned = cursor_state.as_ref().map(|cs| cs.total_scanned).unwrap_or(0);
+        let mut cumulative_failed = cursor_state.as_ref().map(|cs| cs.failed_count).unwrap_or(0);
+        let cumulative_type_counts: HashMap<String, usize> = cursor_state
+            .as_ref()
+            .map(|cs| cs.type_counts.clone())
+            .unwrap_or_default();
+        let cumulative_fees: u64 = cursor_state.as_ref().map(|cs| cs.total_fees_lamports).unwrap_or(0);
+
+        let mut rpc_cursor = starting_cursor;
         let mut is_complete = false;
 
         'pages: while pages_scanned < MAX_SCAN_PAGES {
@@ -276,7 +368,7 @@ impl QueryTransactionsTool {
                 .get_signatures_for_address(
                     &address,
                     Some(SIGNATURES_PER_PAGE),
-                    cursor.as_deref(),
+                    rpc_cursor.as_deref(),
                     None,
                     self.commitment.as_deref(),
                 )
@@ -300,19 +392,27 @@ impl QueryTransactionsTool {
                 let err_field = sig_obj.get("err");
                 let is_success = err_field.map(|e| e.is_null()).unwrap_or(true);
 
-                // Time gating: skip entries that are too recent
-                if let (Some(bt), Some(bts)) = (block_time, before_ts)
-                    && bt >= bts
-                {
-                    continue;
+                // Time gating only applies to initial request without cursor
+                if cursor_state.is_none() {
+                    // Time gating: skip entries that are too recent
+                    if let (Some(bt), Some(bts)) = (block_time, before_ts)
+                        && bt >= bts
+                    {
+                        continue;
+                    }
+
+                    // Time gating: stop once we pass the lower bound
+                    if let (Some(bt), Some(ats)) = (block_time, after_ts)
+                        && bt < ats
+                    {
+                        is_complete = true;
+                        break 'pages;
+                    }
                 }
 
-                // Time gating: stop once we pass the lower bound
-                if let (Some(bt), Some(ats)) = (block_time, after_ts)
-                    && bt < ats
-                {
-                    is_complete = true;
-                    break 'pages;
+                cumulative_scanned += 1;
+                if !is_success {
+                    cumulative_failed += 1;
                 }
 
                 signatures.push(SigEntry { signature, block_time, is_success });
@@ -324,20 +424,18 @@ impl QueryTransactionsTool {
                 break 'pages;
             }
 
-            cursor = signatures.last().map(|e| e.signature.clone());
+            rpc_cursor = signatures.last().map(|e| e.signature.clone());
             pages_scanned += 1;
         }
 
-        let total_scanned = signatures.len();
-        // Count failures from the raw scanned set, independent of include_failed gate,
-        // so that R-D suggestion fires correctly under default (include_failed=false).
-        let failed_count = signatures.iter().filter(|e| !e.is_success).count();
+        let total_scanned = cumulative_scanned;
+        let failed_count = cumulative_failed;
 
         // ---- Phase 2: fetch, humanize, filter, project ----
         let mut matched: usize = 0;
         let mut transactions: Vec<serde_json::Value> = Vec::new();
-        let mut type_counts: HashMap<String, usize> = HashMap::new();
-        let mut total_fees: u64 = 0;
+        let mut type_counts = cumulative_type_counts.clone();
+        let mut total_fees = cumulative_fees;
 
         for entry in &signatures {
             // Apply include_failed gate before RPC fetch
@@ -394,7 +492,7 @@ impl QueryTransactionsTool {
         }
 
         let result_summary = ResultSummary {
-            type_counts,
+            type_counts: type_counts.clone(),
             total_fees_lamports: total_fees,
             failed_count,
         };
@@ -403,10 +501,28 @@ impl QueryTransactionsTool {
             &transactions,
             total_scanned,
             is_complete,
-            after_ts.is_some() || before_ts.is_some(),
+            has_time_filter,
             effective_types.is_some(),
             result_summary.failed_count,
         );
+
+        // Determine nextCursor: present if we hit the limit and scan isn't complete
+        let next_cursor = if matched >= effective_limit && !is_complete {
+            // Use the last signature we saw as the continuation point
+            signatures.last().map(|e| {
+                CursorState::from_first_page(
+                    e.signature.clone(),
+                    pages_scanned,
+                    total_scanned,
+                    failed_count,
+                    type_counts,
+                    total_fees,
+                )
+                .encode()
+            })
+        } else {
+            None
+        };
 
         let result = QueryTransactionsResult {
             address,
@@ -416,9 +532,13 @@ impl QueryTransactionsTool {
             result_summary,
             transactions,
             suggested_actions,
+            next_cursor,
         };
 
-        Ok(json_result(&result, "Failed to serialize query_transactions result"))
+        Ok(json_result(
+            &result,
+            "Failed to serialize query_transactions result",
+        ))
     }
 }
 

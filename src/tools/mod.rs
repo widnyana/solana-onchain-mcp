@@ -43,8 +43,8 @@ pub use transfer_sol::*;
 pub use transfer_token::*;
 pub use tx_inspector::{
     InspectTransactionHumanizedTool, InspectTransactionRawTool, ParsedInstructionData, ProgramCategory,
-    decode_instruction, format_instruction_error, format_instruction_error_with_program,
-    get_program_name, identify_program, interpret_error,
+    decode_instruction, format_instruction_error, format_instruction_error_with_program, get_program_name,
+    identify_program, interpret_error,
 };
 
 tool_box!(
