@@ -227,6 +227,28 @@ Human-readable transaction summary.
 
 Returns: status, fee, summary, instructions with explanations, accounts
 
+#### query_transactions
+
+Filter and classify transactions for a wallet with human-readable details and cursor-based pagination.
+Use this instead of `get_signatures_for_address` when you need full transaction details, type filtering, or summaries.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `address` | string | No | Wallet address. Omit to use server keypair address |
+| `cursor` | string | No | Pagination cursor from previous response. Omit for first request |
+| `since_days` | u64 | No | Days back from now (mutually exclusive with `after_timestamp`) |
+| `before_timestamp` | i64 | No | Unix epoch upper bound (exclusive) |
+| `after_timestamp` | i64 | No | Unix epoch lower bound (exclusive, mutually exclusive with `since_days`) |
+| `tx_types` | [string] | No | Filter by type: `transfer`, `swap`, `mint`, `burn`, `nft`, `unknown`. Omit for all |
+| `include_failed` | bool | No | Include failed transactions (default: false) |
+| `limit` | u64 | No | Max matched results (default: 20, max: 1000) |
+| `compact` | bool | No | Compact output (default: true). Set `false` for full humanized JSON |
+| `commitment` | string | No | Commitment level |
+
+**Pagination:** Omit `cursor` for the first request. Pass `nextCursor` from the response as `cursor` to fetch the next page. No `nextCursor` in response means end of results. Time filters cannot be combined with `cursor`.
+
+Returns: matched transactions with type, status, fee, summary; plus `result_summary` (type counts, total fees, failed count) and optional `nextCursor`.
+
 ### Write Tools
 
 #### transfer_sol
@@ -352,10 +374,7 @@ solana-onchain-mcp --http-allow-keypair --accept-risk --host 127.0.0.1 --port 30
 {
   "mcpServers": {
     "solana": {
-      "url": "http://localhost:3000/sse",
-      "headers": {
-        "Accept": "text/event-stream"
-      }
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
