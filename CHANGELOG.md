@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-04
+
+### Added
+- `query_transactions` tool: filter and classify transactions with cursor-based MCP pagination
+- Improved tool descriptions with explicit LLM guidance
+
+### Changed
+- Dropped stdio transport; server is now HTTP-only (Streamable HTTP via `/mcp`)
+- Removed `--http` flag; HTTP is now the default and only transport
+- Tightened tool descriptions for `get_balance`, `get_signatures_for_address`, `create_associated_token_account`
+- Client configuration now uses `url: http://localhost:<port>/mcp` instead of stdio `command`
+
+### Breaking
+- Stdio transport removed — existing stdio-based client configs must switch to HTTP:
+  `{ "url": "http://localhost:3000/mcp" }`
+
+### Fixed
+- `query_transactions`: failed_count now counted from Phase 1 scan (not Phase 2 filter)
+- `query_transactions`: removed stale `last_cursor` field from response output
+
 ## [0.2.0] - 2026-03-25
 
 ### Added

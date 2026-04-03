@@ -1,6 +1,6 @@
 [package]
 name = "solana-onchain-mcp"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "MCP for Solana On-Chain activities"
 authors = ["widnyana <wid@widnyana.web.id>"]

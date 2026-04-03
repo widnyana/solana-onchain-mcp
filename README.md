@@ -2,9 +2,13 @@
 
 [![Crates.io](https://img.shields.io/crates/v/solana-onchain-mcp)](https://crates.io/crates/solana-onchain-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Changelog](https://img.shields.io/badge/changelog-v0.2.0-blue)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-v0.3.0-blue)](CHANGELOG.md)
 
 MCP server for Solana blockchain operations.
+
+## Demo
+
+![Usage Demo](./etc/demo.gif)
 
 ## Install
 
@@ -48,7 +52,7 @@ SOLANA_NETWORK=devnet solana-onchain-mcp --port 3000
 {
   "mcpServers": {
     "solana": {
-      "url": "http://localhost:3000/sse"
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
@@ -62,7 +66,7 @@ SOLANA_NETWORK=devnet solana-onchain-mcp --port 3000
 {
   "mcpServers": {
     "solana": {
-      "url": "http://localhost:3000/sse"
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
@@ -76,8 +80,8 @@ SOLANA_NETWORK=devnet solana-onchain-mcp --port 3000
 {
   "servers": {
     "solana": {
-      "type": "sse",
-      "url": "http://localhost:3000/sse"
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
@@ -92,7 +96,7 @@ SOLANA_NETWORK=devnet SOLANA_KEYPAIR_PATH=/path/to/keypair.json \
   solana-onchain-mcp --http-allow-keypair --accept-risk --host 127.0.0.1 --port 3000
 ```
 
-Then connect your client to `http://localhost:3000/sse`.
+Then connect your client to `http://localhost:3000/mcp`.
 
 ## Tools (19)
 
