@@ -9,9 +9,9 @@ use crate::{error::Result, keypair::LoadedKeypair, rpc::SolanaRpcClient};
     description = "Create an Associated Token Account (ATA) for a token mint if it doesn't exist.
 
 Use this tool before transfer_token when the recipient doesn't have a token account for that mint.
-Check first with get_token_accounts_by_owner to see if an ATA already exists.
+MUST Check first with `get_token_accounts_by_owner` to see if an ATA already exists.
 
-This costs a small amount of SOL (rent-exempt balance) from your wallet."
+Notice: This costs a small amount of SOL (rent-exempt balance) from your wallet."
 )]
 #[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct CreateAtaTool {

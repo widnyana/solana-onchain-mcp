@@ -13,15 +13,21 @@ const MAX_SIGNATURES_LIMIT: u64 = 1000;
 
 #[mcp_tool(
     name = "get_signatures_for_address",
-    description = "Get transaction signatures for an address, ordered newest to oldest.
+    description = "Get transaction SIGNATURES (not full details) for an address, ordered newest to oldest.
 
-Use this tool when you need to:
-- View transaction history for a wallet or account
-- Paginate through historical transactions
-- Check transaction status (success/failure)
+Use this tool ONLY when you need:
+- A list of signatures for pagination purposes
+- To check if signatures exist (without fetching details)
+- Transaction status checking **without** full transaction data
 
-Returns signatures with slot, blockTime, err (null if success), and confirmationStatus.
-Use 'before' and 'until' for pagination."
+Returns ONLY signatures with slot, blockTime, err (null if success), and confirmationStatus.
+Does NOT include transaction details, instructions, or human-readable explanations.
+
+For full transaction details with classification, use `query_transactions` instead.
+
+Pagination: Use 'before' and 'until' parameters.
+
+**NEVER** truncate the `signature` field"
 )]
 #[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct GetSignaturesForAddressTool {
