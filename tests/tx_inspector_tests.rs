@@ -580,7 +580,10 @@ mod format_instruction_error_with_program_tests {
         let err = json!({ "InstructionError": [0, "InsufficientFundsForRent"] });
         let result = format_instruction_error_with_program(&err, TOKEN_PROGRAM);
         assert!(result.contains("Instruction 0 failed"), "result: {result}");
-        assert!(result.contains("InsufficientFundsForRent"), "result: {result}");
+        assert!(
+            result.contains("InsufficientFundsForRent"),
+            "result: {result}"
+        );
     }
 
     #[test]

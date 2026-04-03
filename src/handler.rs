@@ -193,9 +193,7 @@ impl ServerHandler for SolanaMcpHandler {
             }
             SolanaTools::QueryTransactionsTool(query_transactions_tool) => {
                 let default_address = self.keypair.as_ref().map(|kp| kp.pubkey.as_str());
-                query_transactions_tool
-                    .call_tool(&client, default_address)
-                    .await
+                query_transactions_tool.call_tool(&client, default_address).await
             }
             SolanaTools::RevokeTokenTool(revoke_token_tool) => {
                 let keypair = self.require_keypair()?;
@@ -321,5 +319,25 @@ mod tests {
             handler.keypair.is_none(),
             "Keypair should be None when keypair file is invalid"
         );
+    }
+
+    #[test]
+    fn test_handler_impl_server_handler() {
+        // This test verifies that SolanaMcpHandler implements ServerHandler trait
+        // which includes the ping handler with default implementation
+        let config = Config {
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            network_type: NetworkType::Devnet,
+            keypair_path: None,
+            accept_risk: false,
+        };
+
+        let handler = SolanaMcpHandler::new(&config);
+        assert!(handler.is_ok(), "Handler should be created successfully");
+
+        // The ServerHandler trait implementation includes handle_ping_request
+        // which has a default implementation that returns an empty result
+        // This test verifies compilation and trait implementation
+        let _handler = handler.unwrap();
     }
 }

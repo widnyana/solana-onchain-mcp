@@ -72,7 +72,12 @@ pub fn format_instruction_error_with_program(err: &serde_json::Value, program_id
 }
 
 /// Apply mint/burn/transfer flags from an instruction_type string.
-fn apply_instruction_type_flags(instruction_type: &str, has_mint: &mut bool, has_burn: &mut bool, has_transfer: &mut bool) {
+fn apply_instruction_type_flags(
+    instruction_type: &str,
+    has_mint: &mut bool,
+    has_burn: &mut bool,
+    has_transfer: &mut bool,
+) {
     let it_lower = instruction_type.to_lowercase();
     if it_lower.contains("mintto") {
         *has_mint = true;
@@ -106,23 +111,30 @@ pub fn classify_tx_type(humanized: &serde_json::Value) -> &'static str {
 
     for instr in instructions {
         let program = instr.get("program").and_then(|p| p.as_str()).unwrap_or("");
-        let instruction_type = instr
-            .get("instruction_type")
-            .and_then(|t| t.as_str())
-            .unwrap_or("");
+        let instruction_type = instr.get("instruction_type").and_then(|t| t.as_str()).unwrap_or("");
 
         if let Some(info) = identify_program(program) {
             match info.category {
                 ProgramCategory::DeFi => has_defi = true,
                 ProgramCategory::NFT => has_nft = true,
                 ProgramCategory::Core => {
-                    apply_instruction_type_flags(instruction_type, &mut has_mint, &mut has_burn, &mut has_transfer);
+                    apply_instruction_type_flags(
+                        instruction_type,
+                        &mut has_mint,
+                        &mut has_burn,
+                        &mut has_transfer,
+                    );
                 }
                 _ => {}
             }
         } else {
             // Unknown program — check instruction_type strings anyway
-            apply_instruction_type_flags(instruction_type, &mut has_mint, &mut has_burn, &mut has_transfer);
+            apply_instruction_type_flags(
+                instruction_type,
+                &mut has_mint,
+                &mut has_burn,
+                &mut has_transfer,
+            );
         }
     }
 
