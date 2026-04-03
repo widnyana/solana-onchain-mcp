@@ -34,6 +34,12 @@ Requires Rust 1.85+.
 
 ## Setup
 
+Start the server first:
+
+```bash
+SOLANA_NETWORK=devnet solana-onchain-mcp --port 3000
+```
+
 ### Claude Code
 
 `.mcp.json`:
@@ -42,8 +48,7 @@ Requires Rust 1.85+.
 {
   "mcpServers": {
     "solana": {
-      "command": "solana-onchain-mcp",
-      "env": { "SOLANA_NETWORK": "devnet" }
+      "url": "http://localhost:3000/sse"
     }
   }
 }
@@ -57,8 +62,7 @@ Requires Rust 1.85+.
 {
   "mcpServers": {
     "solana": {
-      "command": "solana-onchain-mcp",
-      "env": { "SOLANA_NETWORK": "devnet" }
+      "url": "http://localhost:3000/sse"
     }
   }
 }
@@ -72,9 +76,8 @@ Requires Rust 1.85+.
 {
   "servers": {
     "solana": {
-      "type": "stdio",
-      "command": "solana-onchain-mcp",
-      "env": { "SOLANA_NETWORK": "devnet" }
+      "type": "sse",
+      "url": "http://localhost:3000/sse"
     }
   }
 }
@@ -82,19 +85,14 @@ Requires Rust 1.85+.
 
 ### With Keypair (for transfers)
 
-```json
-{
-  "mcpServers": {
-    "solana": {
-      "command": "solana-onchain-mcp",
-      "env": {
-        "SOLANA_NETWORK": "devnet",
-        "SOLANA_KEYPAIR_PATH": "/path/to/keypair.json"
-      }
-    }
-  }
-}
+Start the server with keypair support (localhost only):
+
+```bash
+SOLANA_NETWORK=devnet SOLANA_KEYPAIR_PATH=/path/to/keypair.json \
+  solana-onchain-mcp --http-allow-keypair --accept-risk --host 127.0.0.1 --port 3000
 ```
+
+Then connect your client to `http://localhost:3000/sse`.
 
 ## Tools (19)
 

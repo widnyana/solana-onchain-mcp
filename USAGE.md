@@ -55,10 +55,9 @@ cargo install --git https://github.com/widnyana/solana-onchain-mcp
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--accept-risk` | false | Enable transfers on mainnet/custom |
-| `--http` | false | HTTP transport mode |
-| `--port` | 3000 | HTTP port (requires `--http`) |
-| `--host` | 127.0.0.1 | HTTP host (requires `--http`) |
-| `--http-allow-keypair` | false | Allow keypair in HTTP mode |
+| `--port` | 3000 | HTTP port |
+| `--host` | 127.0.0.1 | HTTP host |
+| `--http-allow-keypair` | false | Allow keypair in HTTP mode (requires `--accept-risk` and `--host 127.0.0.1`) |
 
 ### Networks
 
@@ -325,7 +324,7 @@ Devnet/testnet don't require this.
 
 ### HTTP Mode
 
-HTTP mode allows remote connections to the MCP server via SSE (Server-Sent Events).
+The server runs exclusively in HTTP mode using SSE (Server-Sent Events).
 
 **Use Cases:**
 - Running MCP server on a separate machine
@@ -334,19 +333,19 @@ HTTP mode allows remote connections to the MCP server via SSE (Server-Sent Event
 
 **Read-Only Mode (Default):**
 ```bash
-solana-onchain-mcp --http --port 3000
+solana-onchain-mcp --port 3000
 ```
 
 **With Keypair (Localhost Only):**
 ```bash
-solana-onchain-mcp --http --http-allow-keypair --accept-risk --host 127.0.0.1 --port 3000
+solana-onchain-mcp --http-allow-keypair --accept-risk --host 127.0.0.1 --port 3000
 ```
 
 **Security Requirements:**
 - `--http-allow-keypair` requires:
   - `--accept-risk` flag
   - `--host 127.0.0.1` (localhost only, rejected for other hosts)
-- By default, HTTP mode runs read-only (keypair disabled)
+- By default, the server runs read-only (keypair disabled)
 
 **Example for AI Integration:**
 ```json

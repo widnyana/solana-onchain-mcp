@@ -1,12 +1,13 @@
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use clap::Parser;
 use rust_mcp_sdk::{
-    McpServer, StdioTransport, ToMcpServerHandler, TransportOptions,
+    ToMcpServerHandler,
     error::SdkResult,
-    mcp_server::{HyperServerOptions, McpServerOptions, ServerRuntime, hyper_server, server_runtime},
+    mcp_server::{HyperServerOptions, hyper_server},
     schema::{Implementation, InitializeResult, ProtocolVersion, ServerCapabilities, ServerCapabilitiesTools},
 };
+use serde_json::Map;
 use solana_onchain_mcp::{config::Config, handler::SolanaMcpHandler};
 mod logging;
 
@@ -18,10 +19,6 @@ struct Args {
     /// Accept risk of using private key on mainnet/custom networks
     #[arg(long)]
     accept_risk: bool,
-
-    /// Enable HTTP transport mode instead of stdio
-    #[arg(long)]
-    http: bool,
 
     /// Port for HTTP server (default: 3000)
     #[arg(long, default_value = "3000")]
@@ -58,14 +55,6 @@ struct Args {
 }
 
 fn validate_http_security(args: &Args, config: &mut Config) -> Result<(), String> {
-    // http-allow-keypair requires --http
-    if args.http_allow_keypair && !args.http {
-        return Err("--http-allow-keypair requires --http".into());
-    }
-
-    if !args.http {
-        return Ok(());
-    }
     if !args.http_allow_keypair {
         config.keypair_path = None;
         info!("HTTP mode running read-only (keypair disabled)");
@@ -93,13 +82,20 @@ fn build_server_details() -> InitializeResult {
         },
         capabilities: ServerCapabilities {
             tools: Some(ServerCapabilitiesTools { list_changed: None }),
+            resources: None,
+            completions: Some(Map::new()),
             ..Default::default()
         },
         meta: None,
         instructions: Some(
-            "Solana blockchain tools. Read: get_balance, get_slot, get_transaction. \
-             Write (requires keypair): transfer_sol, transfer_token. \
-             Set SOLANA_KEYPAIR_PATH to enable write operations."
+            "Solana blockchain tools.\n\
+             Read (no keypair): get_balance, get_account_info, get_multiple_accounts, \
+             get_token_accounts_by_owner, get_program_accounts, get_transaction, \
+             get_signatures_for_address, get_signature_status, get_slot, \
+             simulate_transaction, get_server_info, query_transactions, \
+             inspect_transaction_raw, inspect_transaction_humanized.\n\
+             Write (requires SOLANA_KEYPAIR_PATH): transfer_sol, transfer_token, \
+             create_associated_token_account, approve_token, revoke_token, close_token_account."
                 .to_string(),
         ),
         protocol_version: ProtocolVersion::V2025_11_25.into(),
@@ -114,22 +110,11 @@ async fn run_http_server(handler: SolanaMcpHandler, args: &Args, server_details:
             host: args.host.clone(),
             port: args.port,
             sse_support: true,
+            message_observer: None,
             ..Default::default()
         },
     );
     info!(host = %args.host, port = args.port, "HTTP server listening");
-    server.start().await
-}
-
-async fn run_stdio_server(handler: SolanaMcpHandler, server_details: InitializeResult) -> SdkResult<()> {
-    let transport = StdioTransport::new(TransportOptions::default())?;
-    let server: Arc<ServerRuntime> = server_runtime::create_server(McpServerOptions {
-        server_details,
-        transport,
-        handler: handler.to_mcp_server_handler(),
-        task_store: None,
-        client_task_store: None,
-    });
     server.start().await
 }
 
@@ -167,7 +152,6 @@ async fn main() -> SdkResult<()> {
 
     info!(
         network = ?config.network_type,
-        mode = if args.http { "http" } else { "stdio" },
         keypair = if config.keypair_path.is_some() { "enabled" } else { "read-only" },
         "solana-onchain-mcp v{} ready",
         env!("CARGO_PKG_VERSION")
@@ -176,11 +160,7 @@ async fn main() -> SdkResult<()> {
     let handler = SolanaMcpHandler::new(&config).expect("Failed to create handler");
     let server_details = build_server_details();
 
-    if args.http {
-        run_http_server(handler, &args, server_details).await
-    } else {
-        run_stdio_server(handler, server_details).await
-    }
+    run_http_server(handler, &args, server_details).await
 }
 
 #[cfg(test)]
@@ -190,38 +170,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_default_args_no_http() {
+    fn test_default_args() {
         let args = Args::try_parse_from(["solana-onchain-mcp"]);
         assert!(args.is_ok());
         let args = args.unwrap();
-        assert!(!args.http);
         assert_eq!(args.port, 3000);
         assert_eq!(args.host, "127.0.0.1");
         assert!(!args.http_allow_keypair);
     }
 
     #[test]
-    fn test_http_flag_enabled() {
-        let args = Args::try_parse_from(["solana-onchain-mcp", "--http"]);
-        assert!(args.is_ok());
-        let args = args.unwrap();
-        assert!(args.http);
-        assert!(!args.http_allow_keypair);
-    }
-
-    #[test]
     fn test_custom_port_and_host() {
-        let args = Args::try_parse_from([
-            "solana-onchain-mcp",
-            "--http",
-            "--port",
-            "8080",
-            "--host",
-            "0.0.0.0",
-        ]);
+        let args = Args::try_parse_from(["solana-onchain-mcp", "--port", "8080", "--host", "0.0.0.0"]);
         assert!(args.is_ok());
         let args = args.unwrap();
-        assert!(args.http);
         assert_eq!(args.port, 8080);
         assert_eq!(args.host, "0.0.0.0");
     }
@@ -230,33 +192,13 @@ mod tests {
     fn test_http_allow_keypair_flags() {
         let args = Args::try_parse_from([
             "solana-onchain-mcp",
-            "--http",
             "--http-allow-keypair",
             "--accept-risk",
         ]);
         assert!(args.is_ok());
         let args = args.unwrap();
-        assert!(args.http);
         assert!(args.http_allow_keypair);
         assert!(args.accept_risk);
-    }
-
-    #[test]
-    fn test_http_allow_keypair_requires_http() {
-        let mut config = Config::default();
-        let args = Args {
-            accept_risk: true,
-            http: false,
-            port: 3000,
-            host: "127.0.0.1".to_string(),
-            http_allow_keypair: true,
-            log_level: None,
-            log_format: None,
-            log_path: None,
-        };
-        let result = validate_http_security(&args, &mut config);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("--http-allow-keypair requires --http"));
     }
 
     #[test]
@@ -264,7 +206,6 @@ mod tests {
         let mut config = Config::default();
         let args = Args {
             accept_risk: false,
-            http: true,
             port: 3000,
             host: "127.0.0.1".to_string(),
             http_allow_keypair: true,
@@ -282,7 +223,6 @@ mod tests {
         let mut config = Config::default();
         let args = Args {
             accept_risk: true,
-            http: true,
             port: 3000,
             host: "0.0.0.0".to_string(),
             http_allow_keypair: true,
@@ -303,7 +243,6 @@ mod tests {
         };
         let args = Args {
             accept_risk: false,
-            http: true,
             port: 3000,
             host: "127.0.0.1".to_string(),
             http_allow_keypair: false,
