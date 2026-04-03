@@ -10,7 +10,9 @@ use crate::rpc::SolanaRpcClient;
     description = "Get SOL balance for a Solana address. Returns balance in lamports \
 (1 SOL = 1,000,000,000 lamports). Use this when the user asks about wallet balance, \
 account funds, or SOL holdings. Does NOT return SPL token balances - those require \
-a different RPC call."
+a different RPC call.
+
+**DO NOT** add commentary."
 )]
 #[derive(Debug, serde::Deserialize, serde::Serialize, JsonSchema)]
 pub struct GetBalanceTool {
